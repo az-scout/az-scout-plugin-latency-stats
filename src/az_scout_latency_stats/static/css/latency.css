@@ -64,11 +64,25 @@
 /* ---- Map container ---- */
 .latency-map-container {
     width: 100%;
+    aspect-ratio: 960 / 500;
+    position: relative;
+    border-radius: 0.375rem;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    background: var(--bs-body-bg, #fff);
+    overflow: hidden;
 }
 
 .latency-map-container svg {
     width: 100%;
     height: auto;
+}
+
+.latency-map-placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* ---- World basemap ---- */
@@ -122,6 +136,7 @@
     fill: none;
     stroke-opacity: 0.5;
     stroke-linecap: round;
+    pointer-events: stroke;
     transition: stroke-opacity 0.15s, stroke-width 0.15s;
 }
 
@@ -132,6 +147,22 @@
 
 .latency-arc.dimmed {
     stroke-opacity: 0.08 !important;
+}
+
+/* ---- Traveling flow dots ---- */
+.latency-flow-dot {
+    opacity: 0;
+    pointer-events: none;
+    filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.6));
+    transition: opacity 0.2s;
+}
+
+.latency-flow-dot.active {
+    opacity: 0.9;
+}
+
+.latency-flow-dot.dimmed {
+    opacity: 0;
 }
 
 /* ---- Arc labels ---- */

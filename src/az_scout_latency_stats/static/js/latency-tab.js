@@ -34,6 +34,10 @@
     let regionCoords = null;
     let worldTopo = null;
 
+    // Shared state for cross-highlighting between map and table
+    let _mapSelections = null;   // { arcElements, flowDots, labelTexts, labelBgs, dotElements, links }
+    let _tableEl = null;         // <div> that contains the rendered table
+
     // -----------------------------------------------------------------------
     // 1. Load HTML fragment
     // -----------------------------------------------------------------------
@@ -79,11 +83,12 @@
             }
         });
 
-        // Pre-load topojson lib, coordinates, and world topology in parallel
-        ensureTopojson().then(() => Promise.all([
+        // Pre-load topojson lib, coordinates, and world topology ALL in parallel
+        Promise.all([
+            ensureTopojson(),
             fetch(COORDS_URL).then(r => r.json()),
             fetch(WORLD_TOPO_URL).then(r => r.json()),
-        ])).then(([coords, topo]) => {
+        ]).then(([_, coords, topo]) => {
             regionCoords = coords;
             worldTopo = topo;
             populateRegions();
@@ -435,6 +440,49 @@
                 .attr("y", ly + 4);
         });
 
+        // Traveling dots — two per arc, moving in opposite directions
+        const dotFlowGroup = svg.append("g").attr("class", "latency-flow-dots");
+        arcElements.each(function (d) {
+            const pathD = this.getAttribute("d");
+            if (!pathD) return;
+            const color = rttColorScale(d.rtt);
+            // Duration scales with RTT: low RTT = fast dot, high RTT = slow
+            const duration = 1 + (d.rtt - minRtt) / (maxRtt - minRtt || 1) * 3; // 1s–4s
+
+            // Forward dot (source → target)
+            const fwd = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            fwd.setAttribute("r", "3.5");
+            fwd.setAttribute("fill", color);
+            fwd.setAttribute("class", "latency-flow-dot");
+            fwd.dataset.source = d.source;
+            fwd.dataset.target = d.target;
+            const animFwd = document.createElementNS("http://www.w3.org/2000/svg", "animateMotion");
+            animFwd.setAttribute("dur", duration + "s");
+            animFwd.setAttribute("repeatCount", "indefinite");
+            animFwd.setAttribute("path", pathD);
+            fwd.appendChild(animFwd);
+            dotFlowGroup.node().appendChild(fwd);
+
+            // Reverse dot (target → source)
+            const rev = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            rev.setAttribute("r", "3.5");
+            rev.setAttribute("fill", color);
+            rev.setAttribute("class", "latency-flow-dot");
+            rev.dataset.source = d.source;
+            rev.dataset.target = d.target;
+            const animRev = document.createElementNS("http://www.w3.org/2000/svg", "animateMotion");
+            animRev.setAttribute("dur", duration + "s");
+            animRev.setAttribute("repeatCount", "indefinite");
+            animRev.setAttribute("path", pathD);
+            animRev.setAttribute("keyPoints", "1;0");
+            animRev.setAttribute("keyTimes", "0;1");
+            animRev.setAttribute("calcMode", "linear");
+            rev.appendChild(animRev);
+            dotFlowGroup.node().appendChild(rev);
+        });
+
+        const flowDots = dotFlowGroup.selectAll(".latency-flow-dot");
+
         // Region dots
         const dotGroup = svg.append("g").attr("class", "latency-dots");
         const dotElements = dotGroup.selectAll("g")
@@ -461,34 +509,31 @@
         // Tooltip
         dotElements.append("title").text(d => d.displayName || d.id);
 
-        // Hover highlighting
-        dotElements.on("mouseenter", function (event, d) {
-            const connectedLinks = links.filter(l =>
-                l.source === d.id || l.target === d.id
-            );
-            const connectedNodes = new Set([d.id]);
-            connectedLinks.forEach(l => {
-                connectedNodes.add(l.source);
-                connectedNodes.add(l.target);
-            });
+        // ---- Shared map selections for cross-highlighting ----
+        _mapSelections = { arcElements, flowDots, labelTexts, labelBgs, dotElements, links };
 
-            arcElements
-                .classed("highlighted", l => l.source === d.id || l.target === d.id)
-                .classed("dimmed", l => l.source !== d.id && l.target !== d.id);
-            labelTexts
-                .classed("highlighted", l => l.source === d.id || l.target === d.id)
-                .classed("dimmed", l => l.source !== d.id && l.target !== d.id);
-            labelBgs
-                .classed("dimmed", l => l.source !== d.id && l.target !== d.id);
-            dotElements.style("opacity", n => connectedNodes.has(n.id) ? 1 : 0.25);
+        // ---- Hover highlighting: region dots ----
+        dotElements.on("mouseenter", function (event, d) {
+            highlightMapByNode(d.id);
+            highlightTablePairs(links.filter(l => l.source === d.id || l.target === d.id));
         });
 
         dotElements.on("mouseleave", function () {
-            arcElements.classed("highlighted", false).classed("dimmed", false);
-            labelTexts.classed("highlighted", false).classed("dimmed", false);
-            labelBgs.classed("dimmed", false);
-            dotElements.style("opacity", 1);
+            clearMapHighlight();
+            clearTableHighlight();
         });
+
+        // ---- Hover highlighting: arcs ----
+        arcElements
+            .style("cursor", "pointer")
+            .on("mouseenter", function (event, d) {
+                highlightMapByLink(d.source, d.target);
+                highlightTablePairs([d]);
+            })
+            .on("mouseleave", function () {
+                clearMapHighlight();
+                clearTableHighlight();
+            });
 
         // Legend
         const knownCount = links.length;
@@ -516,7 +561,97 @@
     // -----------------------------------------------------------------------
     // 4. Latency table renderer
     // -----------------------------------------------------------------------
+    // -----------------------------------------------------------------------
+    // Cross-highlighting helpers (map side)
+    // -----------------------------------------------------------------------
+    function highlightMapByNode(nodeId) {
+        if (!_mapSelections) return;
+        const { arcElements, flowDots, labelTexts, labelBgs, dotElements, links } = _mapSelections;
+        const connectedLinks = links.filter(l => l.source === nodeId || l.target === nodeId);
+        const connectedNodes = new Set([nodeId]);
+        connectedLinks.forEach(l => { connectedNodes.add(l.source); connectedNodes.add(l.target); });
+
+        arcElements
+            .classed("highlighted", l => l.source === nodeId || l.target === nodeId)
+            .classed("dimmed", l => l.source !== nodeId && l.target !== nodeId);
+        labelTexts
+            .classed("highlighted", l => l.source === nodeId || l.target === nodeId)
+            .classed("dimmed", l => l.source !== nodeId && l.target !== nodeId);
+        labelBgs
+            .classed("dimmed", l => l.source !== nodeId && l.target !== nodeId);
+        dotElements.style("opacity", n => connectedNodes.has(n.id) ? 1 : 0.25);
+        flowDots
+            .classed("active", function () {
+                return this.dataset.source === nodeId || this.dataset.target === nodeId;
+            })
+            .classed("dimmed", function () {
+                return this.dataset.source !== nodeId && this.dataset.target !== nodeId;
+            });
+    }
+
+    function highlightMapByLink(source, target) {
+        if (!_mapSelections) return;
+        const { arcElements, flowDots, labelTexts, labelBgs, dotElements } = _mapSelections;
+
+        const isMatch = l => (l.source === source && l.target === target) ||
+                             (l.source === target && l.target === source);
+        arcElements
+            .classed("highlighted", isMatch)
+            .classed("dimmed", l => !isMatch(l));
+        labelTexts
+            .classed("highlighted", isMatch)
+            .classed("dimmed", l => !isMatch(l));
+        labelBgs
+            .classed("dimmed", l => !isMatch(l));
+        dotElements.style("opacity", n => n.id === source || n.id === target ? 1 : 0.25);
+        flowDots
+            .classed("active", function () {
+                return (this.dataset.source === source && this.dataset.target === target) ||
+                       (this.dataset.source === target && this.dataset.target === source);
+            })
+            .classed("dimmed", function () {
+                return !((this.dataset.source === source && this.dataset.target === target) ||
+                         (this.dataset.source === target && this.dataset.target === source));
+            });
+    }
+
+    function clearMapHighlight() {
+        if (!_mapSelections) return;
+        const { arcElements, flowDots, labelTexts, labelBgs, dotElements } = _mapSelections;
+        arcElements.classed("highlighted", false).classed("dimmed", false);
+        labelTexts.classed("highlighted", false).classed("dimmed", false);
+        labelBgs.classed("dimmed", false);
+        dotElements.style("opacity", 1);
+        flowDots.classed("active", false).classed("dimmed", false);
+    }
+
+    // -----------------------------------------------------------------------
+    // Cross-highlighting helpers (table side)
+    // -----------------------------------------------------------------------
+    function highlightTablePairs(pairs) {
+        if (!_tableEl) return;
+        pairs.forEach(p => {
+            // Highlight both directions (row=source,col=target and row=target,col=source)
+            const cells = _tableEl.querySelectorAll(
+                `td[data-source="${p.source}"][data-target="${p.target}"],` +
+                `td[data-source="${p.target}"][data-target="${p.source}"]`
+            );
+            cells.forEach(td => td.classList.add("latency-cell-active"));
+        });
+    }
+
+    function clearTableHighlight() {
+        if (!_tableEl) return;
+        _tableEl.querySelectorAll(".latency-cell-active").forEach(td => {
+            td.classList.remove("latency-cell-active");
+        });
+        _tableEl.querySelectorAll(".latency-header-highlight").forEach(el => {
+            el.classList.remove("latency-header-highlight");
+        });
+    }
+
     function renderLatencyTable(data, tableEl) {
+        _tableEl = tableEl;
         tableEl.innerHTML = "";
 
         const regionNames = data.regions || [];
@@ -608,6 +743,11 @@
                         td.className = "latency-cell-unknown";
                     }
                 }
+                // Data attributes for cross-highlighting with the map
+                if (i !== j) {
+                    td.dataset.source = rowName;
+                    td.dataset.target = colName;
+                }
                 tr.appendChild(td);
             });
             tbody.appendChild(tr);
@@ -630,13 +770,18 @@
             const tr = td.parentElement;
             const colIdx = Array.from(tr.children).indexOf(td);
 
-            // Highlight the hovered cell
+            // Cross-hair highlight on the table
             td.classList.add("latency-cell-active");
-            // Highlight the row header (first child = th)
             const rowTh = tr.querySelector("th");
             if (rowTh) rowTh.classList.add("latency-header-highlight");
-            // Highlight the column header
             if (headerCells[colIdx]) headerCells[colIdx].classList.add("latency-header-highlight");
+
+            // Cross-highlight the matching arc + flow dots on the map
+            const source = td.dataset.source;
+            const target = td.dataset.target;
+            if (source && target) {
+                highlightMapByLink(source, target);
+            }
         });
 
         tbody.addEventListener("mouseout", (e) => {
@@ -649,6 +794,8 @@
             const rowTh = tr.querySelector("th");
             if (rowTh) rowTh.classList.remove("latency-header-highlight");
             if (headerCells[colIdx]) headerCells[colIdx].classList.remove("latency-header-highlight");
+
+            clearMapHighlight();
         });
     }
 })();

@@ -5,6 +5,8 @@
         Data source:
         <a href="https://learn.microsoft.com/en-us/azure/networking/azure-network-latency"
            target="_blank" rel="noopener">Azure Network Latency</a>.
+        <br>
+        <em>Note: not all regions and pairing combinations have documented latency data available.</em>
     </p>
 
     <!-- Top bar: collapsible selector -->
@@ -31,7 +33,14 @@
     <!-- Main content: map left, table right -->
     <div class="latency-content-row">
         <div class="latency-map-panel">
-            <div id="latency-map-container" class="latency-map-container"></div>
+            <div id="latency-map-container" class="latency-map-container">
+                <div class="latency-map-placeholder" id="latency-map-placeholder">
+                    <div class="spinner-border spinner-border-sm text-secondary" role="status">
+                        <span class="visually-hidden">Loading map…</span>
+                    </div>
+                    <span class="text-body-secondary small ms-2">Loading map…</span>
+                </div>
+            </div>
             <div id="latency-legend" class="latency-legend mt-2 small text-body-secondary"></div>
         </div>
         <div class="latency-table-panel">
