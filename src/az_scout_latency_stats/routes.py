@@ -10,9 +10,9 @@ from az_scout_latency_stats.metadata import (
     AZUREDOCS_SOURCE,
     CLOUD63_DISCLAIMER,
     CLOUD63_SOURCE,
-    INTRA_ZONE_DISCLAIMER,
-    INTRA_ZONE_METHODOLOGY,
-    INTRA_ZONE_SOURCE,
+    INTER_ZONE_DISCLAIMER,
+    INTER_ZONE_METHODOLOGY,
+    INTER_ZONE_SOURCE,
 )
 
 router = APIRouter()
@@ -25,17 +25,17 @@ class LatencyMatrixRequest(BaseModel):
     mode: Literal["azuredocs", "cloud63"] = "azuredocs"
 
 
-class IntraZoneMatrixRequest(BaseModel):
-    """Request body for intra-zone matrix endpoint."""
+class InterZoneMatrixRequest(BaseModel):
+    """Request body for inter-zone matrix endpoint."""
 
     region: str
 
 
-@router.post("/matrix")
+@router.post("/inter-region/matrix")
 async def latency_matrix(body: LatencyMatrixRequest) -> dict[str, object]:
     """Return a pairwise RTT latency matrix for the given regions.
 
-    Available at ``/plugins/latency-stats/matrix``.
+    Available at ``/plugins/latency-stats/inter-region/matrix``.
     Accepts a JSON body with ``{"regions": [...], "mode": "azuredocs"|"cloud63"}``.
     """
     if body.mode == "cloud63":
@@ -64,11 +64,11 @@ async def latency_matrix(body: LatencyMatrixRequest) -> dict[str, object]:
     }
 
 
-@router.get("/pairs")
+@router.get("/inter-region/pairs")
 async def latency_pairs() -> dict[str, object]:
     """Return all known latency pairs.
 
-    Available at ``/plugins/latency-stats/pairs``.
+    Available at ``/plugins/latency-stats/inter-region/pairs``.
     """
     from az_scout_latency_stats.latency import list_known_pairs
 
@@ -78,11 +78,11 @@ async def latency_pairs() -> dict[str, object]:
     }
 
 
-@router.get("/cloud63-regions")
+@router.get("/inter-region/cloud63-regions")
 async def cloud63_regions() -> dict[str, object]:
     """Return the list of regions available in the Cloud63 data.
 
-    Available at ``/plugins/latency-stats/cloud63-regions``.
+    Available at ``/plugins/latency-stats/inter-region/cloud63-regions``.
     Triggers a data fetch if the cache is empty or stale.
     """
     from az_scout_latency_stats.cloud63 import (
@@ -94,30 +94,30 @@ async def cloud63_regions() -> dict[str, object]:
     return {"regions": get_cloud63_regions()}
 
 
-@router.get("/intra-zone/regions")
-async def intra_zone_regions() -> dict[str, object]:
-    """Return the list of regions available for intra-zone latency data."""
-    from az_scout_latency_stats.intra_zone import (
-        get_intra_zone_regions,
-        refresh_intra_zone_data,
+@router.get("/inter-zone/regions")
+async def inter_zone_regions() -> dict[str, object]:
+    """Return the list of regions available for inter-zone latency data."""
+    from az_scout_latency_stats.inter_zone import (
+        get_inter_zone_regions,
+        refresh_inter_zone_data,
     )
 
-    await refresh_intra_zone_data()
-    return {"regions": get_intra_zone_regions()}
+    await refresh_inter_zone_data()
+    return {"regions": get_inter_zone_regions()}
 
 
-@router.post("/intra-zone/matrix")
-async def intra_zone_matrix(body: IntraZoneMatrixRequest) -> dict[str, object]:
-    """Return intra-region AZ latency matrix (P50) for a selected region."""
-    from az_scout_latency_stats.intra_zone import (
-        get_intra_zone_matrix,
-        refresh_intra_zone_data,
+@router.post("/inter-zone/matrix")
+async def inter_zone_matrix(body: InterZoneMatrixRequest) -> dict[str, object]:
+    """Return inter-zone AZ latency matrix (P50 RTT) for a selected region."""
+    from az_scout_latency_stats.inter_zone import (
+        get_inter_zone_matrix,
+        refresh_inter_zone_data,
     )
 
-    await refresh_intra_zone_data()
+    await refresh_inter_zone_data()
     return {
-        **get_intra_zone_matrix(body.region),
-        "source": INTRA_ZONE_SOURCE,
-        "disclaimer": INTRA_ZONE_DISCLAIMER,
-        "methodology": f"{INTRA_ZONE_METHODOLOGY} is used when multiple samples exist.",
+        **get_inter_zone_matrix(body.region),
+        "source": INTER_ZONE_SOURCE,
+        "disclaimer": INTER_ZONE_DISCLAIMER,
+        "methodology": f"{INTER_ZONE_METHODOLOGY} is used when multiple samples exist.",
     }

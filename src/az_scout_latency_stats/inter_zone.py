@@ -1,4 +1,4 @@
-"""Intra-region (Availability Zone) latency data.
+"""Inter-zone (Availability Zone) latency data.
 
 Source: https://fa-azure-network-benchmark.azurewebsites.net/api/data
 
@@ -22,7 +22,7 @@ from typing import Any
 
 from az_scout_latency_stats._log import logger
 
-_INTRA_ZONE_API_URL = "https://fa-azure-network-benchmark.azurewebsites.net/api/data"
+_INTER_ZONE_API_URL = "https://fa-azure-network-benchmark.azurewebsites.net/api/data"
 _CACHE_TTL = 86400  # 24h
 
 _ROWKEY_REGION_MAP: dict[str, str] = {
@@ -63,9 +63,9 @@ _ROWKEY_REGION_MAP: dict[str, str] = {
 }
 
 _cache_lock = threading.Lock()
-_intra_zone_pairs: dict[tuple[str, str, str], float] = {}
-_intra_zone_loaded_at: float = 0.0
-_intra_zone_loaded = False
+_inter_zone_pairs: dict[tuple[str, str, str], float] = {}
+_inter_zone_loaded_at: float = 0.0
+_inter_zone_loaded = False
 
 
 def _parse_latency_us(value: Any) -> float | None:
@@ -297,12 +297,12 @@ def _extract_region_and_zones_from_endpoints(
     return None
 
 
-async def _fetch_intra_zone_data() -> list[dict[str, Any]]:
-    """Fetch the intra-zone latency dataset from the remote API."""
+async def _fetch_inter_zone_data() -> list[dict[str, Any]]:
+    """Fetch the inter-zone latency dataset from the remote API."""
     import httpx
 
     async with httpx.AsyncClient(timeout=60.0) as client:
-        resp = await client.get(_INTRA_ZONE_API_URL)
+        resp = await client.get(_INTER_ZONE_API_URL)
         resp.raise_for_status()
         payload = resp.json()
 
@@ -318,7 +318,7 @@ async def _fetch_intra_zone_data() -> list[dict[str, Any]]:
     return []
 
 
-def _process_intra_zone_records(records: list[dict[str, Any]]) -> dict[tuple[str, str, str], float]:
+def _process_inter_zone_records(records: list[dict[str, Any]]) -> dict[tuple[str, str, str], float]:
     """Aggregate records and keep P50 RTT for each region/zone-pair.
 
     RTT is computed as:
@@ -364,42 +364,42 @@ def _process_intra_zone_records(records: list[dict[str, Any]]) -> dict[tuple[str
     return p50_pairs
 
 
-async def refresh_intra_zone_data() -> None:
-    """Fetch and cache intra-zone data (if stale or not loaded)."""
-    global _intra_zone_pairs, _intra_zone_loaded_at, _intra_zone_loaded  # noqa: PLW0603
+async def refresh_inter_zone_data() -> None:
+    """Fetch and cache inter-zone data (if stale or not loaded)."""
+    global _inter_zone_pairs, _inter_zone_loaded_at, _inter_zone_loaded  # noqa: PLW0603
 
     now = time.monotonic()
-    if _intra_zone_loaded and (now - _intra_zone_loaded_at) < _CACHE_TTL:
+    if _inter_zone_loaded and (now - _inter_zone_loaded_at) < _CACHE_TTL:
         return
 
-    logger.info("Fetching intra-zone latency data from %s", _INTRA_ZONE_API_URL)
-    records = await _fetch_intra_zone_data()
-    pairs = _process_intra_zone_records(records)
+    logger.info("Fetching inter-zone latency data from %s", _INTER_ZONE_API_URL)
+    records = await _fetch_inter_zone_data()
+    pairs = _process_inter_zone_records(records)
 
     with _cache_lock:
-        _intra_zone_pairs = pairs
-        _intra_zone_loaded_at = time.monotonic()
-        _intra_zone_loaded = True
+        _inter_zone_pairs = pairs
+        _inter_zone_loaded_at = time.monotonic()
+        _inter_zone_loaded = True
 
     logger.info(
-        "Cached %d intra-zone pairs (%d raw records)",
+        "Cached %d inter-zone pairs (%d raw records)",
         len(pairs),
         len(records),
     )
 
 
-def is_intra_zone_loaded() -> bool:
-    """Return True when intra-zone cache is loaded and fresh."""
-    return _intra_zone_loaded and (time.monotonic() - _intra_zone_loaded_at) < _CACHE_TTL
+def is_inter_zone_loaded() -> bool:
+    """Return True when inter-zone cache is loaded and fresh."""
+    return _inter_zone_loaded and (time.monotonic() - _inter_zone_loaded_at) < _CACHE_TTL
 
 
-def get_intra_zone_regions() -> list[str]:
-    """Return sorted list of regions available in intra-zone cache."""
+def get_inter_zone_regions() -> list[str]:
+    """Return sorted list of regions available in inter-zone cache."""
     with _cache_lock:
-        return sorted({region for region, _, _ in _intra_zone_pairs})
+        return sorted({region for region, _, _ in _inter_zone_pairs})
 
 
-def get_intra_zone_latency_us(region: str, zone_a: str, zone_b: str) -> float | None:
+def get_inter_zone_latency_us(region: str, zone_a: str, zone_b: str) -> float | None:
     """Return P50 RTT for a zone pair within a region (in microseconds)."""
     normalized_region = _normalise_region(region)
     normalized_a = _normalise_zone(zone_a)
@@ -413,16 +413,16 @@ def get_intra_zone_latency_us(region: str, zone_a: str, zone_b: str) -> float | 
     zone_1, zone_2 = sorted((normalized_a, normalized_b))
     key = (normalized_region, zone_1, zone_2)
     with _cache_lock:
-        return _intra_zone_pairs.get(key)
+        return _inter_zone_pairs.get(key)
 
 
-def get_intra_zone_matrix(region: str) -> dict[str, Any]:
-    """Return full intra-zone matrix for a region in microseconds."""
+def get_inter_zone_matrix(region: str) -> dict[str, Any]:
+    """Return full inter-zone matrix for a region in microseconds."""
     normalized_region = _normalise_region(region)
     with _cache_lock:
         region_pairs = {
             (zone_a, zone_b): latency
-            for (r, zone_a, zone_b), latency in _intra_zone_pairs.items()
+            for (r, zone_a, zone_b), latency in _inter_zone_pairs.items()
             if r == normalized_region
         }
 
@@ -461,16 +461,16 @@ def get_intra_zone_matrix(region: str) -> dict[str, Any]:
     }
 
 
-def prewarm_intra_zone() -> None:
-    """Trigger background intra-zone fetch without blocking startup."""
+def prewarm_inter_zone() -> None:
+    """Trigger background inter-zone fetch without blocking startup."""
     import asyncio
     import threading
 
     def _run() -> None:
         try:
-            asyncio.run(refresh_intra_zone_data())
+            asyncio.run(refresh_inter_zone_data())
         except Exception:
-            logger.warning("Intra-zone prewarm failed — data will be fetched on first request")
+            logger.warning("Inter-zone prewarm failed — data will be fetched on first request")
 
-    thread = threading.Thread(target=_run, daemon=True, name="intra-zone-prewarm")
+    thread = threading.Thread(target=_run, daemon=True, name="inter-zone-prewarm")
     thread.start()

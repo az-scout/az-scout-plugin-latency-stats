@@ -10,7 +10,7 @@
     const WORLD_TOPO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
     const TOPOJSON_CDN = "https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js";
     const COORDS_URL = `/plugins/${PLUGIN_NAME}/static/data/region-coordinates.json`;
-    const INTRA_MODULE_URL = `/plugins/${PLUGIN_NAME}/static/js/latency-tab-intra.js`;
+    const INTERZONE_MODULE_URL = `/plugins/${PLUGIN_NAME}/static/js/latency-tab-interzone.js`;
 
     // Dynamically load topojson-client if not already available
     function ensureTopojson() {
@@ -63,7 +63,7 @@
         .then(resp => resp.text())
         .then(async html => {
             container.innerHTML = html;
-            await ensureScript(INTRA_MODULE_URL, "LatencyStatsIntra");
+            await ensureScript(INTERZONE_MODULE_URL, "LatencyStatsIntra");
             initLatencyPlugin();
         })
         .catch(err => {
@@ -84,11 +84,11 @@
         const selBadge      = document.getElementById("latency-selection-badge");
         const sourceText    = document.getElementById("latency-source-text");
         const interModeEl   = document.getElementById("latency-inter-mode");
-        const intraModeEl   = document.getElementById("latency-intra-mode");
-        const intraGraphEl  = document.getElementById("latency-intra-graph-container");
-        const intraTableEl  = document.getElementById("latency-intra-table-container");
-        const intraRegionEl = document.getElementById("latency-intra-region-current");
-        const intraStatusEl = document.getElementById("latency-intra-status");
+        const interzoneModeEl   = document.getElementById("latency-interzone-mode");
+        const interzoneGraphEl  = document.getElementById("latency-interzone-graph-container");
+        const interzoneTableEl  = document.getElementById("latency-interzone-table-container");
+        const interzoneRegionEl = document.getElementById("latency-interzone-region-current");
+        const interzoneStatusEl = document.getElementById("latency-interzone-status");
         const coreRegionSelect = document.getElementById("region-select");
         const scopeRadios = document.querySelectorAll('input[name="latency-scope"]');
 
@@ -106,9 +106,9 @@
         }
 
         function updateSourceText(scope, mode) {
-            if (scope === "intra") {
+            if (scope === "interzone") {
                 sourceText.innerHTML =
-                    'Visualise intra-region latency between Availability Zones for the region selected.' +
+                    'Visualise inter-zone latency between Availability Zones for the region selected.' +
                     'Data source: <a href="https://latency.azure.cloud63.fr/" target="_blank" rel="noopener">Cloud63 — Azure Latency Test</a>. ' +
                     '<br><em>When multiple values exist for a zone pair, P50 (median) is used.</em>';
                 return;
@@ -154,24 +154,24 @@
             const mode = getMode();
             updateSourceText(scope, mode);
 
-            if (scope === "intra") {
+            if (scope === "interzone") {
                 interModeEl.classList.add("d-none");
-                intraModeEl.classList.remove("d-none");
-                fetchAndRenderIntra();
+                interzoneModeEl.classList.remove("d-none");
+                fetchAndRenderInterzone();
                 return;
             }
 
             interModeEl.classList.remove("d-none");
-            intraModeEl.classList.add("d-none");
+            interzoneModeEl.classList.add("d-none");
             fetchAndRender();
         }
 
         if (coreRegionSelect) {
             coreRegionSelect.addEventListener("change", () => {
-                if (getScope() === "intra") fetchAndRenderIntra();
+                if (getScope() === "interzone") fetchAndRenderInterzone();
             });
             const regionObserver = new MutationObserver(() => {
-                if (getScope() === "intra") fetchAndRenderIntra();
+                if (getScope() === "interzone") fetchAndRenderInterzone();
             });
             regionObserver.observe(coreRegionSelect, {
                 childList: true,
@@ -228,7 +228,7 @@
         async function mergeCloud63Regions() {
             if (cloud63RegionsMerged) return;
             try {
-                const resp = await fetch(`/plugins/${PLUGIN_NAME}/cloud63-regions`);
+                const resp = await fetch(`/plugins/${PLUGIN_NAME}/inter-region/cloud63-regions`);
                 if (!resp.ok) return;
                 const data = await resp.json();
                 const cloud63List = data.regions || [];
@@ -320,7 +320,7 @@
                 }
 
                 const mode = getMode();
-                const data = await apiPost(`/plugins/${PLUGIN_NAME}/matrix`, { regions: selected, mode });
+                const data = await apiPost(`/plugins/${PLUGIN_NAME}/inter-region/matrix`, { regions: selected, mode });
                 renderLatencyMap(data, mapEl, legendEl);
                 renderLatencyTable(data, tableEl);
             } catch (e) {
@@ -328,39 +328,39 @@
             }
         }
 
-        async function fetchAndRenderIntra() {
+        async function fetchAndRenderInterzone() {
             const region = getCoreSelectedRegion();
-            intraRegionEl.textContent = region || "—";
+            interzoneRegionEl.textContent = region || "—";
 
             if (!coreRegionSelect) {
-                intraStatusEl.textContent = "Main app region selector not found.";
-                intraGraphEl.innerHTML = '<p class="text-body-secondary text-center py-3">Region selector unavailable.</p>';
-                intraTableEl.innerHTML = "";
+                interzoneStatusEl.textContent = "Main app region selector not found.";
+                interzoneGraphEl.innerHTML = '<p class="text-body-secondary text-center py-3">Region selector unavailable.</p>';
+                interzoneTableEl.innerHTML = "";
                 return;
             }
 
             if (!region) {
-                intraStatusEl.textContent = "Select a region in the main app to view AZ latency.";
-                intraGraphEl.innerHTML = '<p class="text-body-secondary text-center py-3">Select a region to display intra-zone latency.</p>';
-                intraTableEl.innerHTML = "";
+                interzoneStatusEl.textContent = "Select a region in the main app to view AZ latency.";
+                interzoneGraphEl.innerHTML = '<p class="text-body-secondary text-center py-3">Select a region to display inter-zone latency.</p>';
+                interzoneTableEl.innerHTML = "";
                 return;
             }
 
-            intraStatusEl.textContent = "Loading intra-zone latency data…";
-            intraGraphEl.innerHTML = '<p class="text-body-secondary text-center py-3">Loading…</p>';
-            intraTableEl.innerHTML = "";
+            interzoneStatusEl.textContent = "Loading inter-zone latency data…";
+            interzoneGraphEl.innerHTML = '<p class="text-body-secondary text-center py-3">Loading…</p>';
+            interzoneTableEl.innerHTML = "";
 
             try {
-                const data = await apiPost(`/plugins/${PLUGIN_NAME}/intra-zone/matrix`, { region });
+                const data = await apiPost(`/plugins/${PLUGIN_NAME}/inter-zone/matrix`, { region });
                 if (!window.LatencyStatsIntra || !window.LatencyStatsIntra.render) {
-                    throw new Error("Intra module failed to load");
+                    throw new Error("Inter-zone module failed to load");
                 }
-                window.LatencyStatsIntra.render(data, intraGraphEl, intraTableEl);
-                intraStatusEl.textContent = `Showing ${data.zones.length} Availability Zones (P50 RTT).`;
+                window.LatencyStatsIntra.render(data, interzoneGraphEl, interzoneTableEl);
+                interzoneStatusEl.textContent = `Showing ${data.zones.length} Availability Zones (P50 RTT).`;
             } catch (e) {
-                intraStatusEl.textContent = `Error: ${e.message}`;
-                intraGraphEl.innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
-                intraTableEl.innerHTML = "";
+                interzoneStatusEl.textContent = `Error: ${e.message}`;
+                interzoneGraphEl.innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
+                interzoneTableEl.innerHTML = "";
             }
         }
 

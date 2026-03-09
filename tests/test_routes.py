@@ -18,7 +18,10 @@ class TestLatencyMatrixAzuredocsMode:
     """Test /matrix endpoint in azuredocs mode."""
 
     def test_default_mode_is_azuredocs(self) -> None:
-        resp = client.post("/matrix", json={"regions": ["francecentral", "westeurope"]})
+        resp = client.post(
+            "/inter-region/matrix",
+            json={"regions": ["francecentral", "westeurope"]},
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["mode"] == "azuredocs"
@@ -26,7 +29,7 @@ class TestLatencyMatrixAzuredocsMode:
 
     def test_explicit_azuredocs_mode(self) -> None:
         resp = client.post(
-            "/matrix",
+            "/inter-region/matrix",
             json={"regions": ["francecentral", "westeurope"], "mode": "azuredocs"},
         )
         assert resp.status_code == 200
@@ -61,7 +64,7 @@ class TestLatencyMatrixCloud63Mode:
             mod._cloud63_loaded_at = 0.0
 
             resp = client.post(
-                "/matrix",
+                "/inter-region/matrix",
                 json={"regions": ["francecentral", "westeurope"], "mode": "cloud63"},
             )
 
@@ -79,7 +82,7 @@ class TestLatencyMatrixCloud63Mode:
 
     def test_invalid_mode_rejected(self) -> None:
         resp = client.post(
-            "/matrix",
+            "/inter-region/matrix",
             json={"regions": ["francecentral"], "mode": "invalid"},
         )
         assert resp.status_code == 422
@@ -89,7 +92,7 @@ class TestLatencyPairs:
     """Test /pairs endpoint (unchanged, still basic only)."""
 
     def test_pairs_returns_list(self) -> None:
-        resp = client.get("/pairs")
+        resp = client.get("/inter-region/pairs")
         assert resp.status_code == 200
         data = resp.json()
         assert "pairs" in data
@@ -128,7 +131,7 @@ class TestCloud63Regions:
             mod._cloud63_loaded = False
             mod._cloud63_loaded_at = 0.0
 
-            resp = client.get("/cloud63-regions")
+            resp = client.get("/inter-region/cloud63-regions")
 
         assert resp.status_code == 200
         data = resp.json()
@@ -147,11 +150,11 @@ class TestCloud63Regions:
             mod._cloud63_loaded = False
 
 
-class TestIntraZoneRoutes:
-    """Test intra-zone endpoints."""
+class TestInterZoneRoutes:
+    """Test inter-zone endpoints."""
 
-    def test_intra_zone_regions(self) -> None:
-        import az_scout_latency_stats.intra_zone as mod
+    def test_inter_zone_regions(self) -> None:
+        import az_scout_latency_stats.inter_zone as mod
 
         fake_records = [
             {
@@ -180,24 +183,24 @@ class TestIntraZoneRoutes:
             },
         ]
 
-        with patch.object(mod, "_fetch_intra_zone_data", new_callable=AsyncMock) as mock_fetch:
+        with patch.object(mod, "_fetch_inter_zone_data", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = fake_records
-            mod._intra_zone_loaded = False
-            mod._intra_zone_loaded_at = 0.0
+            mod._inter_zone_loaded = False
+            mod._inter_zone_loaded_at = 0.0
 
-            resp = client.get("/intra-zone/regions")
+            resp = client.get("/inter-zone/regions")
 
         assert resp.status_code == 200
         data = resp.json()
         assert data["regions"] == ["francecentral", "westeurope"]
 
         with mod._cache_lock:
-            mod._intra_zone_pairs = {}
-            mod._intra_zone_loaded_at = 0.0
-            mod._intra_zone_loaded = False
+            mod._inter_zone_pairs = {}
+            mod._inter_zone_loaded_at = 0.0
+            mod._inter_zone_loaded = False
 
-    def test_intra_zone_matrix(self) -> None:
-        import az_scout_latency_stats.intra_zone as mod
+    def test_inter_zone_matrix(self) -> None:
+        import az_scout_latency_stats.inter_zone as mod
 
         fake_records = [
             {
@@ -238,12 +241,12 @@ class TestIntraZoneRoutes:
             },
         ]
 
-        with patch.object(mod, "_fetch_intra_zone_data", new_callable=AsyncMock) as mock_fetch:
+        with patch.object(mod, "_fetch_inter_zone_data", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = fake_records
-            mod._intra_zone_loaded = False
-            mod._intra_zone_loaded_at = 0.0
+            mod._inter_zone_loaded = False
+            mod._inter_zone_loaded_at = 0.0
 
-            resp = client.post("/intra-zone/matrix", json={"region": "westeurope"})
+            resp = client.post("/inter-zone/matrix", json={"region": "westeurope"})
 
         assert resp.status_code == 200
         data = resp.json()
@@ -256,6 +259,6 @@ class TestIntraZoneRoutes:
         assert "source" in data
 
         with mod._cache_lock:
-            mod._intra_zone_pairs = {}
-            mod._intra_zone_loaded_at = 0.0
-            mod._intra_zone_loaded = False
+            mod._inter_zone_pairs = {}
+            mod._inter_zone_loaded_at = 0.0
+            mod._inter_zone_loaded = False

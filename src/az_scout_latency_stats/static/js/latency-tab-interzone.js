@@ -1,21 +1,21 @@
-// Latency Stats plugin — intra-zone graph + table renderer
+// Latency Stats plugin — inter-zone graph + table renderer
 (function () {
     function render(data, graphContainerEl, tableContainerEl) {
-        renderIntraZoneGraph(data, graphContainerEl);
-        renderIntraZoneTable(data, tableContainerEl);
+        renderInterZoneGraph(data, graphContainerEl);
+        renderInterZoneTable(data, tableContainerEl);
     }
 
-    let intraSelections = null;
-    let intraTableEl = null;
+    let interzoneSelections = null;
+    let interzoneTableEl = null;
 
-    function renderIntraZoneGraph(data, containerEl) {
+    function renderInterZoneGraph(data, containerEl) {
         containerEl.innerHTML = "";
-        intraSelections = null;
+        interzoneSelections = null;
 
         const zones = data.zones || [];
         const pairs = data.pairs || [];
         if (zones.length < 2) {
-            containerEl.innerHTML = '<p class="text-body-secondary text-center py-3">No intra-zone data available for this region.</p>';
+            containerEl.innerHTML = '<p class="text-body-secondary text-center py-3">No inter-zone data available for this region.</p>';
             return;
         }
 
@@ -113,7 +113,7 @@
         const maxRtt = Math.max(...allRtt, 0.1);
         const colorScale = d3.scaleSequential(d3.interpolateRdYlGn).domain([maxRtt, minRtt]);
 
-        const latencyGroup = svg.append("g").attr("class", "latency-intra-links");
+        const latencyGroup = svg.append("g").attr("class", "latency-interzone-links");
         pairs.forEach(pair => {
             const src = zonePoints.get(pair.zoneA);
             const dst = zonePoints.get(pair.zoneB);
@@ -186,7 +186,7 @@
                 .text(label);
         });
 
-        intraSelections = {
+        interzoneSelections = {
             linkElements: latencyGroup.selectAll(".latency-zone-map-latency-link"),
             labelTexts: latencyGroup.selectAll(".latency-zone-map-latency-label"),
             labelBgs: latencyGroup.selectAll(".latency-zone-map-latency-bg"),
@@ -194,9 +194,9 @@
     }
 
     function highlightIntraMapByPair(zoneA, zoneB) {
-        if (!intraSelections || !zoneA || !zoneB) return;
+        if (!interzoneSelections || !zoneA || !zoneB) return;
         const pairKey = [zoneA, zoneB].sort().join("|");
-        const { linkElements, labelTexts, labelBgs } = intraSelections;
+        const { linkElements, labelTexts, labelBgs } = interzoneSelections;
 
         linkElements
             .classed("highlighted", function () {
@@ -221,18 +221,18 @@
     }
 
     function clearIntraMapHighlight() {
-        if (!intraSelections) return;
-        const { linkElements, labelTexts, labelBgs } = intraSelections;
+        if (!interzoneSelections) return;
+        const { linkElements, labelTexts, labelBgs } = interzoneSelections;
         linkElements.classed("highlighted", false).classed("dimmed", false);
         labelTexts.classed("highlighted", false).classed("dimmed", false);
         labelBgs.classed("dimmed", false);
     }
 
     function highlightIntraTablePair(zoneA, zoneB) {
-        if (!intraTableEl || !zoneA || !zoneB) return;
+        if (!interzoneTableEl || !zoneA || !zoneB) return;
         const [z1, z2] = [zoneA, zoneB].sort();
         clearIntraTableHighlight();
-        const cells = intraTableEl.querySelectorAll(
+        const cells = interzoneTableEl.querySelectorAll(
             `td[data-zone-a="${z1}"][data-zone-b="${z2}"]`
         );
         cells.forEach(td => {
@@ -254,23 +254,23 @@
     }
 
     function clearIntraTableHighlight() {
-        if (!intraTableEl) return;
-        intraTableEl.querySelectorAll(".latency-cell-active").forEach(td => {
+        if (!interzoneTableEl) return;
+        interzoneTableEl.querySelectorAll(".latency-cell-active").forEach(td => {
             td.classList.remove("latency-cell-active");
         });
-        intraTableEl.querySelectorAll(".latency-header-highlight").forEach(el => {
+        interzoneTableEl.querySelectorAll(".latency-header-highlight").forEach(el => {
             el.classList.remove("latency-header-highlight");
         });
     }
 
-    function renderIntraZoneTable(data, containerEl) {
-        intraTableEl = containerEl;
+    function renderInterZoneTable(data, containerEl) {
+        interzoneTableEl = containerEl;
         containerEl.innerHTML = "";
 
         const region = data.region || "";
         const pairs = data.pairs || [];
         if (!pairs.length) {
-            containerEl.innerHTML = '<p class="text-body-secondary text-center py-3">No intra-zone pair data available.</p>';
+            containerEl.innerHTML = '<p class="text-body-secondary text-center py-3">No inter-zone pair data available.</p>';
             return;
         }
 

@@ -1,6 +1,6 @@
 # az-scout-plugin-latency-stats
 
-Inter-region and intra-region (Availability Zone) latency plugin for [az-scout](https://github.com/lrivallain/az-scout).
+Inter-region and inter-zone (Availability Zone) latency plugin for [az-scout](https://github.com/lrivallain/az-scout).
 
 <img width="1088" height="1361" alt="Screnshot of latency plugin" src="https://github.com/user-attachments/assets/53b51880-c2c4-4381-89eb-e5adda78de1a" />
 
@@ -8,10 +8,10 @@ Inter-region and intra-region (Availability Zone) latency plugin for [az-scout](
 
 - **Latency dataset** — static latency matrix based on [Microsoft published statistics](https://learn.microsoft.com/en-us/azure/networking/azure-network-latency)
 - **Cloud63 dataset support** — optional inter-region crowd-sourced measurements via `mode="cloud63"`
-- **Intra-zone dataset support** — benchmark-based AZ latency matrix from Cloud63 benchmark API
-- **API endpoints** — inter-region and intra-region endpoints for matrix and available regions
-- **MCP tools** — `region_latency(...)` for inter-region RTT and `intra_region_latency(...)` for intra-region P50 latency in µs
-- **UI tab** — interactive D3.js views with inter/intra scope switch, map/table synchronization, and bidirectional hover highlighting
+- **Inter-zone dataset support** — benchmark-based AZ latency matrix from Cloud63 benchmark API
+- **API endpoints** — inter-region and inter-zone endpoints for matrix and available regions
+- **MCP tools** — `inter_region_latency(...)` for inter-region RTT and `inter_zone_latency(...)` for inter-zone P50 RTT latency in µs
+- **UI tab** — interactive D3.js views with inter-region/inter-zone scope switch, map/table synchronization, and bidirectional hover highlighting
 - **URL hash routing** — `#latency-stats` selects the plugin tab
 
 ## Setup
@@ -46,7 +46,7 @@ az-scout-plugin-latency-stats/
     └── az_scout_latency_stats/
         ├── __init__.py          # Plugin class + module-level `plugin` instance
     ├── cloud63.py           # Cloud63 data fetch/cache + inter-region matrix API
-    ├── intra_zone.py        # Intra-zone benchmark fetch/cache + AZ matrix API
+    ├── inter_zone.py        # Inter-zone benchmark fetch/cache + AZ matrix API
         ├── latency.py           # Static latency dataset + public API
     ├── metadata.py          # Shared source/disclaimer/methodology constants
         ├── routes.py            # FastAPI APIRouter (optional)
@@ -60,7 +60,7 @@ az-scout-plugin-latency-stats/
             │   └── latency-tab.html # HTML fragment (fetched by JS at runtime)
             └── js/
         ├── latency-tab.js         # Main tab bootstrap + inter-region UI logic
-        └── latency-tab-intra.js   # Intra-zone graph/table rendering + sync logic
+        └── latency-tab-interzone.js   # Inter-zone graph/table rendering + sync logic
 ```
 
 ## How it works
@@ -70,7 +70,7 @@ az-scout-plugin-latency-stats/
    - **Inter-region**: select regions and choose source mode (`azuredocs` or `cloud63`).
    - **Intra-region (AZ)**: uses the main app region selector (`#region-select`).
 3. Inter-region calls `POST /plugins/latency-stats/matrix` and renders world map + matrix table.
-4. Intra-region calls `POST /plugins/latency-stats/intra-zone/matrix` and renders AZ graph + pair table.
+4. Intra-region calls `POST /plugins/latency-stats/inter-zone/matrix` and renders AZ graph + pair table.
 5. Hover interactions are synchronized between graph links and table values in both directions.
 
 ### API
@@ -87,11 +87,11 @@ curl http://localhost:8080/plugins/latency-stats/pairs
 # Cloud63 available regions
 curl http://localhost:8080/plugins/latency-stats/cloud63-regions
 
-# Intra-zone available regions
-curl http://localhost:8080/plugins/latency-stats/intra-zone/regions
+# Inter-zone available regions
+curl http://localhost:8080/plugins/latency-stats/inter-zone/regions
 
 # Intra-region AZ matrix
-curl -X POST http://localhost:8080/plugins/latency-stats/intra-zone/matrix \
+curl -X POST http://localhost:8080/plugins/latency-stats/inter-zone/matrix \
   -H "Content-Type: application/json" \
   -d '{"region": "westeurope"}'
 ```
@@ -99,9 +99,9 @@ curl -X POST http://localhost:8080/plugins/latency-stats/intra-zone/matrix \
 ### MCP tool
 
 ```
-region_latency(source_region="francecentral", target_region="westeurope")
-region_latency(source_region="francecentral", target_region="westeurope", mode="cloud63")
-intra_region_latency(region="westeurope", source_zone="az1", target_zone="az2")
+inter_region_latency(source_region="francecentral", target_region="westeurope")
+inter_region_latency(source_region="francecentral", target_region="westeurope", mode="cloud63")
+inter_zone_latency(region="westeurope", source_zone="az1", target_zone="az2")
 ```
 
 ## Quality checks
@@ -137,7 +137,7 @@ code that follows the project patterns.
 
 - **Azure Docs** (inter-region): [Azure Network Latency](https://learn.microsoft.com/en-us/azure/networking/azure-network-latency)
 - **Cloud63** (inter-region optional mode): [Azure Latency Test](https://latency.azure.cloud63.fr/)
-- **Cloud63 benchmark API** (intra-region AZ): `https://fa-azure-network-benchmark.azurewebsites.net/api/data`
+- **Cloud63 benchmark API** (inter-zone AZ): `https://fa-azure-network-benchmark.azurewebsites.net/api/data`
 
 Intra-region outputs are exposed in **microseconds** (`latencyUsP50`). Always validate with in-tenant measurements.
 

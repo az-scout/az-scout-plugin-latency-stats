@@ -36,10 +36,10 @@ class LatencyStatsPlugin:
         """Return API routes for latency data."""
         if not self._prewarmed:
             from az_scout_latency_stats.cloud63 import prewarm_cloud63
-            from az_scout_latency_stats.intra_zone import prewarm_intra_zone
+            from az_scout_latency_stats.inter_zone import prewarm_inter_zone
 
             prewarm_cloud63()
-            prewarm_intra_zone()
+            prewarm_inter_zone()
             self._prewarmed = True
 
         from az_scout_latency_stats.routes import router
@@ -48,9 +48,9 @@ class LatencyStatsPlugin:
 
     def get_mcp_tools(self) -> list[Callable[..., Any]] | None:
         """Return MCP tool functions for latency queries."""
-        from az_scout_latency_stats.tools import intra_region_latency, region_latency
+        from az_scout_latency_stats.tools import inter_region_latency, inter_zone_latency
 
-        return [region_latency, intra_region_latency]
+        return [inter_region_latency, inter_zone_latency]
 
     def get_static_dir(self) -> Path | None:
         """Return path to static assets directory."""
@@ -71,12 +71,12 @@ class LatencyStatsPlugin:
     def get_system_prompt_addendum(self) -> str | None:
         """Return extra guidance for the default discussion chat mode."""
         return (
-            "For inter-region latency questions, use the region_latency tool. "
+            "For inter-region latency questions, use the inter_region_latency tool. "
             "It supports two data sources: 'azuredocs' (Microsoft published stats) "
             "and 'cloud63' (crowd-sourced measurements from the Azure Latency Test project). "
             "Default to 'azuredocs' unless the user asks for cloud63 data. "
-            "For intra-region (Availability Zone) latency questions, use the "
-            "intra_region_latency tool. IMPORTANT: this tool returns latency "
+            "For inter-zone (Availability Zone) latency questions, use the "
+            "inter_zone_latency tool. IMPORTANT: this tool returns latency "
             "between PHYSICAL AZs (az1, az2, az3), which are the same across "
             "all subscriptions. Do NOT remap them through logical-to-physical "
             "zone mappings. Present zone names exactly as returned by the tool."

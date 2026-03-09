@@ -1,4 +1,4 @@
-"""Tests for intra-zone latency data module."""
+"""Tests for inter-zone latency data module."""
 
 from __future__ import annotations
 
@@ -6,13 +6,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from az_scout_latency_stats.intra_zone import (
+from az_scout_latency_stats.inter_zone import (
     _parse_latency_us,
-    _process_intra_zone_records,
-    get_intra_zone_latency_us,
-    get_intra_zone_matrix,
-    get_intra_zone_regions,
-    is_intra_zone_loaded,
+    _process_inter_zone_records,
+    get_inter_zone_latency_us,
+    get_inter_zone_matrix,
+    get_inter_zone_regions,
+    is_inter_zone_loaded,
 )
 
 
@@ -32,7 +32,7 @@ class TestParseMs:
         assert _parse_latency_us("186 us") == 186.0
 
 
-class TestProcessIntraZoneRecords:
+class TestProcessInterZoneRecords:
     """Unit tests for record processing and P50 RTT aggregation."""
 
     def test_aggregates_p50_for_pair(self) -> None:
@@ -57,7 +57,7 @@ class TestProcessIntraZoneRecords:
             },
         ]
 
-        pairs = _process_intra_zone_records(records)
+        pairs = _process_inter_zone_records(records)
 
         # RTT = P50(az1→az2=[1200,2400]) + P50(az2→az1=[1800]) = 1800 + 1800
         assert pairs[("westeurope", "az1", "az2")] == 3600.0
@@ -68,7 +68,7 @@ class TestProcessIntraZoneRecords:
             {"sourceZone": "1", "destinationZone": "2", "latency": "1.0 ms"},
         ]
 
-        assert _process_intra_zone_records(records) == {}
+        assert _process_inter_zone_records(records) == {}
 
     def test_extracts_from_endpoint_style_records(self) -> None:
         records = [
@@ -94,7 +94,7 @@ class TestProcessIntraZoneRecords:
             },
         ]
 
-        pairs = _process_intra_zone_records(records)
+        pairs = _process_inter_zone_records(records)
 
         assert pairs[("westeurope", "az1", "az2")] == 1.1 + 1.2
         assert pairs[("westeurope", "az2", "az3")] == 1300.0 + 1500.0
@@ -127,7 +127,7 @@ class TestProcessIntraZoneRecords:
             },
         ]
 
-        pairs = _process_intra_zone_records(records)
+        pairs = _process_inter_zone_records(records)
 
         # RTT = P50(az1→az3=[186,214]) + P50(az3→az1=[220,228]) = 200 + 224
         assert pairs[("francecentral", "az1", "az3")] == 424.0
@@ -160,46 +160,46 @@ class TestProcessIntraZoneRecords:
             },
         ]
 
-        pairs = _process_intra_zone_records(records)
+        pairs = _process_inter_zone_records(records)
 
         # RTT = P50(216.12,216.18) + P50(113.03,113.07) = 216.15 + 113.05
         assert pairs[("swedencentral", "az1", "az2")] == pytest.approx(329.2)
 
 
 @pytest.fixture()
-def _populated_intra_cache() -> None:  # type: ignore[misc]
-    """Populate intra-zone module cache for tests."""
+def _populated_interzone_cache() -> None:  # type: ignore[misc]
+    """Populate inter-zone module cache for tests."""
     import time
 
-    import az_scout_latency_stats.intra_zone as mod
+    import az_scout_latency_stats.inter_zone as mod
 
     with mod._cache_lock:
-        mod._intra_zone_pairs = {
+        mod._inter_zone_pairs = {
             ("westeurope", "az1", "az2"): 1200.0,
             ("westeurope", "az1", "az3"): 1500.0,
             ("westeurope", "az2", "az3"): 1300.0,
         }
-        mod._intra_zone_loaded_at = time.monotonic()
-        mod._intra_zone_loaded = True
+        mod._inter_zone_loaded_at = time.monotonic()
+        mod._inter_zone_loaded = True
 
     yield
 
     with mod._cache_lock:
-        mod._intra_zone_pairs = {}
-        mod._intra_zone_loaded_at = 0.0
-        mod._intra_zone_loaded = False
+        mod._inter_zone_pairs = {}
+        mod._inter_zone_loaded_at = 0.0
+        mod._inter_zone_loaded = False
 
 
-@pytest.mark.usefixtures("_populated_intra_cache")
-class TestIntraZoneQueries:
-    """Unit tests for intra-zone query functions."""
+@pytest.mark.usefixtures("_populated_interzone_cache")
+class TestInterZoneQueries:
+    """Unit tests for inter-zone query functions."""
 
-    def test_get_intra_zone_latency(self) -> None:
-        assert get_intra_zone_latency_us("westeurope", "az1", "az2") == 1200.0
-        assert get_intra_zone_latency_us("westeurope", "zone1", "zone2") == 1200.0
+    def test_get_inter_zone_latency(self) -> None:
+        assert get_inter_zone_latency_us("westeurope", "az1", "az2") == 1200.0
+        assert get_inter_zone_latency_us("westeurope", "zone1", "zone2") == 1200.0
 
-    def test_get_intra_zone_matrix(self) -> None:
-        result = get_intra_zone_matrix("westeurope")
+    def test_get_inter_zone_matrix(self) -> None:
+        result = get_inter_zone_matrix("westeurope")
 
         assert result["region"] == "westeurope"
         assert result["zones"] == ["westeurope-az1", "westeurope-az2", "westeurope-az3"]
@@ -210,18 +210,18 @@ class TestIntraZoneQueries:
         assert result["pairs"][0]["latencyUsP50"] > 0
 
     def test_get_regions(self) -> None:
-        assert get_intra_zone_regions() == ["westeurope"]
+        assert get_inter_zone_regions() == ["westeurope"]
 
     def test_loaded_state(self) -> None:
-        assert is_intra_zone_loaded() is True
+        assert is_inter_zone_loaded() is True
 
 
-class TestRefreshIntraZone:
-    """Unit tests for intra-zone refresh with mocked HTTP."""
+class TestRefreshInterZone:
+    """Unit tests for inter-zone refresh with mocked HTTP."""
 
     @pytest.mark.asyncio()
     async def test_fetches_and_caches(self) -> None:
-        import az_scout_latency_stats.intra_zone as mod
+        import az_scout_latency_stats.inter_zone as mod
 
         fake_records = [
             {
@@ -238,18 +238,18 @@ class TestRefreshIntraZone:
             },
         ]
 
-        with patch.object(mod, "_fetch_intra_zone_data", new_callable=AsyncMock) as mock_fetch:
+        with patch.object(mod, "_fetch_inter_zone_data", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = fake_records
-            mod._intra_zone_loaded = False
-            mod._intra_zone_loaded_at = 0.0
+            mod._inter_zone_loaded = False
+            mod._inter_zone_loaded_at = 0.0
 
-            await mod.refresh_intra_zone_data()
+            await mod.refresh_inter_zone_data()
 
             mock_fetch.assert_awaited_once()
-            assert mod._intra_zone_loaded is True
-            assert mod._intra_zone_pairs[("westeurope", "az1", "az2")] == 2500.0
+            assert mod._inter_zone_loaded is True
+            assert mod._inter_zone_pairs[("westeurope", "az1", "az2")] == 2500.0
 
         with mod._cache_lock:
-            mod._intra_zone_pairs = {}
-            mod._intra_zone_loaded_at = 0.0
-            mod._intra_zone_loaded = False
+            mod._inter_zone_pairs = {}
+            mod._inter_zone_loaded_at = 0.0
+            mod._inter_zone_loaded = False

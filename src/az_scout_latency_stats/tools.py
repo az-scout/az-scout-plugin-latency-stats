@@ -7,13 +7,13 @@ from az_scout_latency_stats.metadata import (
     AZUREDOCS_SOURCE,
     CLOUD63_DISCLAIMER,
     CLOUD63_SOURCE,
-    INTRA_ZONE_DISCLAIMER,
-    INTRA_ZONE_METHODOLOGY,
-    INTRA_ZONE_SOURCE,
+    INTER_ZONE_DISCLAIMER,
+    INTER_ZONE_METHODOLOGY,
+    INTER_ZONE_SOURCE,
 )
 
 
-def region_latency(source_region: str, target_region: str, mode: str = "azuredocs") -> str:
+def inter_region_latency(source_region: str, target_region: str, mode: str = "azuredocs") -> str:
     """Return indicative RTT latency between two Azure regions.
 
     Args:
@@ -65,8 +65,8 @@ def region_latency(source_region: str, target_region: str, mode: str = "azuredoc
     return json.dumps(result, indent=2)
 
 
-def intra_region_latency(region: str, source_zone: str = "", target_zone: str = "") -> str:
-    """Return intra-region PHYSICAL Availability Zone RTT latency (P50 median).
+def inter_zone_latency(region: str, source_zone: str = "", target_zone: str = "") -> str:
+    """Return inter-zone PHYSICAL Availability Zone RTT latency (P50 median).
 
     IMPORTANT: This tool uses PHYSICAL AZ identifiers (az1, az2, az3), NOT
     logical AZs.  Physical AZs are the same for all subscriptions in a region.
@@ -78,26 +78,26 @@ def intra_region_latency(region: str, source_zone: str = "", target_zone: str = 
         source_zone: Physical AZ identifier (e.g. 'az1'). NOT a logical zone.
         target_zone: Physical AZ identifier (e.g. 'az2'). NOT a logical zone.
     """
-    from az_scout_latency_stats.intra_zone import (
-        get_intra_zone_latency_us,
-        get_intra_zone_matrix,
-        is_intra_zone_loaded,
+    from az_scout_latency_stats.inter_zone import (
+        get_inter_zone_latency_us,
+        get_inter_zone_matrix,
+        is_inter_zone_loaded,
     )
 
-    if not is_intra_zone_loaded():
+    if not is_inter_zone_loaded():
         return json.dumps(
             {
                 "error": (
-                    "Intra-zone data not yet loaded. "
+                    "Inter-zone data not yet loaded. "
                     "Use the web UI first to trigger the initial fetch, "
-                    "or call the /intra-zone/matrix endpoint."
+                    "or call the /inter-zone/matrix endpoint."
                 ),
             },
             indent=2,
         )
 
     if source_zone and target_zone:
-        latency_us = get_intra_zone_latency_us(region, source_zone, target_zone)
+        latency_us = get_inter_zone_latency_us(region, source_zone, target_zone)
         return json.dumps(
             {
                 "region": region,
@@ -105,20 +105,20 @@ def intra_region_latency(region: str, source_zone: str = "", target_zone: str = 
                 "targetPhysicalZone": f"{region}-{target_zone}",
                 "latencyUsP50": latency_us,
                 "zoneType": "physical",
-                "source": INTRA_ZONE_SOURCE,
-                "methodology": INTRA_ZONE_METHODOLOGY,
-                "disclaimer": INTRA_ZONE_DISCLAIMER,
+                "source": INTER_ZONE_SOURCE,
+                "methodology": INTER_ZONE_METHODOLOGY,
+                "disclaimer": INTER_ZONE_DISCLAIMER,
             },
             indent=2,
         )
 
-    matrix = get_intra_zone_matrix(region)
+    matrix = get_inter_zone_matrix(region)
     return json.dumps(
         {
             **matrix,
-            "source": INTRA_ZONE_SOURCE,
-            "methodology": INTRA_ZONE_METHODOLOGY,
-            "disclaimer": INTRA_ZONE_DISCLAIMER,
+            "source": INTER_ZONE_SOURCE,
+            "methodology": INTER_ZONE_METHODOLOGY,
+            "disclaimer": INTER_ZONE_DISCLAIMER,
         },
         indent=2,
     )

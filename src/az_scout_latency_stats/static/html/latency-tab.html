@@ -7,9 +7,9 @@
                    value="inter" autocomplete="off" checked>
             <label class="btn btn-outline-primary" for="latency-scope-inter">Inter-region</label>
 
-            <input type="radio" class="btn-check" name="latency-scope" id="latency-scope-intra"
-                   value="intra" autocomplete="off">
-            <label class="btn btn-outline-primary" for="latency-scope-intra">Intra-region (AZ)</label>
+            <input type="radio" class="btn-check" name="latency-scope" id="latency-scope-interzone"
+                   value="interzone" autocomplete="off">
+            <label class="btn btn-outline-primary" for="latency-scope-interzone">Inter-zone (AZ)</label>
         </div>
     </div>
 
@@ -102,27 +102,27 @@
         </div>
     </div>
 
-    <div id="latency-intra-mode" class="d-none">
+    <div id="latency-interzone-mode" class="d-none">
         <div class="latency-content-row">
             <div class="latency-map-panel">
-                <div id="latency-intra-graph-container" class="latency-map-container"></div>
+                <div id="latency-interzone-graph-container" class="latency-map-container"></div>
             </div>
             <div class="latency-table-panel">
-                <div id="latency-intra-table-container" class="latency-table-container"></div>
+                <div id="latency-interzone-table-container" class="latency-table-container"></div>
 
-                <div class="latency-methodology-note mt-3" id="latency-intra-info-panel" role="note" aria-label="Intra-region latency methodology">
+                <div class="latency-methodology-note mt-3" id="latency-interzone-info-panel" role="note" aria-label="Inter-zone latency methodology">
                     <div class="latency-methodology-head text-body-secondary small">
                         <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
                         <span>Methodology</span>
                     </div>
                     <div class="text-body-secondary small">
                         Uses the main app region selector.
-                        Current region: <strong id="latency-intra-region-current">—</strong>
+                        Current region: <strong id="latency-interzone-region-current">—</strong>
                     </div>
-                    <div class="text-body-secondary small" id="latency-intra-status"></div>
+                    <div class="text-body-secondary small" id="latency-interzone-status"></div>
                     <div class="latency-methodology-tags">
                         <span class="latency-method-pill">P50 RTT</span>
-                        <span class="latency-method-pill">Intra-region AZ latency</span>
+                        <span class="latency-method-pill">Inter-zone AZ latency</span>
                     </div>
                 </div>
             </div>
