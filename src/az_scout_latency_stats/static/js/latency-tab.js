@@ -10,6 +10,7 @@
     const WORLD_TOPO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
     const TOPOJSON_CDN = "https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js";
     const COORDS_URL = `/plugins/${PLUGIN_NAME}/static/data/region-coordinates.json`;
+    const INTRA_MODULE_URL = `/plugins/${PLUGIN_NAME}/static/js/latency-tab-intra.js`;
 
     // Dynamically load topojson-client if not already available
     function ensureTopojson() {
@@ -19,6 +20,23 @@
             script.src = TOPOJSON_CDN;
             script.onload = resolve;
             script.onerror = () => reject(new Error("Failed to load topojson-client library"));
+            document.head.appendChild(script);
+        });
+    }
+
+    function ensureScript(url, globalSymbol) {
+        if (globalSymbol && typeof window[globalSymbol] !== "undefined") return Promise.resolve();
+        return new Promise((resolve, reject) => {
+            const existing = document.querySelector(`script[src="${url}"]`);
+            if (existing) {
+                existing.addEventListener("load", () => resolve());
+                existing.addEventListener("error", () => reject(new Error(`Failed to load ${url}`)));
+                return;
+            }
+            const script = document.createElement("script");
+            script.src = url;
+            script.onload = resolve;
+            script.onerror = () => reject(new Error(`Failed to load ${url}`));
             document.head.appendChild(script);
         });
     }
@@ -43,8 +61,9 @@
     // -----------------------------------------------------------------------
     fetch(`/plugins/${PLUGIN_NAME}/static/html/latency-tab.html`)
         .then(resp => resp.text())
-        .then(html => {
+        .then(async html => {
             container.innerHTML = html;
+            await ensureScript(INTRA_MODULE_URL, "LatencyStatsIntra");
             initLatencyPlugin();
         })
         .catch(err => {
@@ -64,15 +83,37 @@
         const popover       = document.getElementById("latency-selector-popover");
         const selBadge      = document.getElementById("latency-selection-badge");
         const sourceText    = document.getElementById("latency-source-text");
+        const interModeEl   = document.getElementById("latency-inter-mode");
+        const intraModeEl   = document.getElementById("latency-intra-mode");
+        const intraGraphEl  = document.getElementById("latency-intra-graph-container");
+        const intraTableEl  = document.getElementById("latency-intra-table-container");
+        const intraRegionEl = document.getElementById("latency-intra-region-current");
+        const intraStatusEl = document.getElementById("latency-intra-status");
+        const coreRegionSelect = document.getElementById("region-select");
+        const scopeRadios = document.querySelectorAll('input[name="latency-scope"]');
 
         // Mode toggle (azuredocs / cloud63)
         const modeRadios = document.querySelectorAll('input[name="latency-mode"]');
+
+        function getScope() {
+            const checked = document.querySelector('input[name="latency-scope"]:checked');
+            return checked ? checked.value : "inter";
+        }
+
         function getMode() {
             const checked = document.querySelector('input[name="latency-mode"]:checked');
             return checked ? checked.value : "azuredocs";
         }
 
-        function updateSourceText(mode) {
+        function updateSourceText(scope, mode) {
+            if (scope === "intra") {
+                sourceText.innerHTML =
+                    'Visualise intra-region latency between Availability Zones for the region selected.' +
+                    'Data source: <a href="https://latency.azure.cloud63.fr/" target="_blank" rel="noopener">Cloud63 — Azure Latency Test</a>. ' +
+                    '<br><em>When multiple values exist for a zone pair, P50 (median) is used.</em>';
+                return;
+            }
+
             if (mode === "cloud63") {
                 sourceText.innerHTML =
                     'Select multiple regions to visualise pairwise round-trip latency (ms) on a world map. ' +
@@ -90,13 +131,54 @@
         }
 
         modeRadios.forEach(r => r.addEventListener("change", async () => {
+            if (getScope() !== "inter") return;
             const mode = getMode();
-            updateSourceText(mode);
+            updateSourceText("inter", mode);
             if (mode === "cloud63") {
                 await mergeCloud63Regions();
             }
             fetchAndRender();
         }));
+
+        scopeRadios.forEach(r => r.addEventListener("change", () => {
+            switchScope();
+        }));
+
+        function getCoreSelectedRegion() {
+            if (!coreRegionSelect) return "";
+            return (coreRegionSelect.value || "").toLowerCase().trim();
+        }
+
+        function switchScope() {
+            const scope = getScope();
+            const mode = getMode();
+            updateSourceText(scope, mode);
+
+            if (scope === "intra") {
+                interModeEl.classList.add("d-none");
+                intraModeEl.classList.remove("d-none");
+                fetchAndRenderIntra();
+                return;
+            }
+
+            interModeEl.classList.remove("d-none");
+            intraModeEl.classList.add("d-none");
+            fetchAndRender();
+        }
+
+        if (coreRegionSelect) {
+            coreRegionSelect.addEventListener("change", () => {
+                if (getScope() === "intra") fetchAndRenderIntra();
+            });
+            const regionObserver = new MutationObserver(() => {
+                if (getScope() === "intra") fetchAndRenderIntra();
+            });
+            regionObserver.observe(coreRegionSelect, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+            });
+        }
 
         // Start with popover open (no regions selected yet)
         popover.classList.add("open");
@@ -201,6 +283,7 @@
 
         // Update badge and auto-render when >= 2 regions selected
         regionSelect.addEventListener("change", () => {
+            if (getScope() !== "inter") return;
             const selected = Array.from(regionSelect.selectedOptions).map(o => o.value);
             selBadge.textContent = selected.length
                 ? `${selected.length} region${selected.length > 1 ? "s" : ""} selected`
@@ -212,6 +295,7 @@
         // Fetch matrix & render (triggered by mode or region change)
         // -----------------------------------------------------------------
         async function fetchAndRender() {
+            if (getScope() !== "inter") return;
             const selected = Array.from(regionSelect.selectedOptions).map(o => o.value);
             if (selected.length < 2) {
                 renderEmptyMap(mapEl);
@@ -243,6 +327,44 @@
                 mapEl.innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
             }
         }
+
+        async function fetchAndRenderIntra() {
+            const region = getCoreSelectedRegion();
+            intraRegionEl.textContent = region || "—";
+
+            if (!coreRegionSelect) {
+                intraStatusEl.textContent = "Main app region selector not found.";
+                intraGraphEl.innerHTML = '<p class="text-body-secondary text-center py-3">Region selector unavailable.</p>';
+                intraTableEl.innerHTML = "";
+                return;
+            }
+
+            if (!region) {
+                intraStatusEl.textContent = "Select a region in the main app to view AZ latency.";
+                intraGraphEl.innerHTML = '<p class="text-body-secondary text-center py-3">Select a region to display intra-zone latency.</p>';
+                intraTableEl.innerHTML = "";
+                return;
+            }
+
+            intraStatusEl.textContent = "Loading intra-zone latency data…";
+            intraGraphEl.innerHTML = '<p class="text-body-secondary text-center py-3">Loading…</p>';
+            intraTableEl.innerHTML = "";
+
+            try {
+                const data = await apiPost(`/plugins/${PLUGIN_NAME}/intra-zone/matrix`, { region });
+                if (!window.LatencyStatsIntra || !window.LatencyStatsIntra.render) {
+                    throw new Error("Intra module failed to load");
+                }
+                window.LatencyStatsIntra.render(data, intraGraphEl, intraTableEl);
+                intraStatusEl.textContent = `Showing ${data.zones.length} Availability Zones (P50).`;
+            } catch (e) {
+                intraStatusEl.textContent = `Error: ${e.message}`;
+                intraGraphEl.innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
+                intraTableEl.innerHTML = "";
+            }
+        }
+
+        switchScope();
     }
 
     // -----------------------------------------------------------------------
@@ -871,4 +993,5 @@
             clearMapHighlight();
         });
     }
+
 })();

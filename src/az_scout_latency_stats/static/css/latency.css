@@ -9,6 +9,12 @@
     position: relative;
 }
 
+.latency-scope-switch {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
 .latency-bar-divider {
     display: inline-block;
     width: 1px;
@@ -139,6 +145,96 @@
          1px -1px 0 var(--bs-body-bg),
         -1px  1px 0 var(--bs-body-bg),
          1px  1px 0 var(--bs-body-bg);
+}
+
+.latency-intra-zone-label {
+    font-size: 11px;
+    font-weight: 700;
+    fill: #fff;
+    pointer-events: none;
+}
+
+.latency-zone-map-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    fill: var(--bs-body-color);
+}
+
+.latency-zone-map-card {
+    fill: color-mix(in oklab, var(--bs-body-bg) 88%, var(--bs-primary) 12%);
+    stroke: color-mix(in oklab, var(--bs-primary) 60%, var(--bs-border-color) 40%);
+    stroke-width: 2;
+}
+
+.latency-zone-map-card-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    fill: color-mix(in oklab, var(--bs-primary) 75%, var(--bs-body-color) 25%);
+}
+
+.latency-zone-map-row-logical,
+.latency-zone-map-row-physical {
+    fill: color-mix(in oklab, var(--bs-body-bg) 84%, var(--bs-primary) 16%);
+    stroke: color-mix(in oklab, var(--bs-primary) 70%, var(--bs-border-color) 30%);
+    stroke-width: 2;
+}
+
+.latency-zone-map-row-label {
+    font-size: 1.05rem;
+    font-weight: 600;
+    fill: var(--bs-body-color);
+}
+
+.latency-zone-map-node {
+    fill: color-mix(in oklab, var(--bs-body-bg) 84%, var(--bs-primary) 16%);
+    stroke: color-mix(in oklab, var(--bs-primary) 70%, var(--bs-border-color) 30%);
+    stroke-width: 2;
+}
+
+.latency-zone-map-connector {
+    fill: none;
+    stroke: color-mix(in oklab, var(--bs-primary) 65%, var(--bs-body-color) 35%);
+    stroke-opacity: 0.5;
+    stroke-width: 3;
+}
+
+.latency-zone-map-latency-link {
+    filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.25));
+}
+
+.latency-zone-map-latency-link.highlighted {
+    stroke-opacity: 1 !important;
+    stroke-width: 5 !important;
+}
+
+.latency-zone-map-latency-link.dimmed {
+    stroke-opacity: 0.08 !important;
+}
+
+.latency-zone-map-latency-bg {
+    fill: var(--bs-body-bg);
+    fill-opacity: 0.9;
+    stroke: none;
+}
+
+.latency-zone-map-latency-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    fill: var(--bs-body-color);
+    text-anchor: middle;
+}
+
+.latency-zone-map-latency-label.dimmed {
+    opacity: 0.1;
+}
+
+.latency-zone-map-latency-label.highlighted {
+    opacity: 1;
+    font-size: 0.8rem;
+}
+
+.latency-zone-map-latency-bg.dimmed {
+    opacity: 0.1;
 }
 
 /* ---- Latency arcs ---- */
@@ -317,7 +413,8 @@
     background-color: var(--bs-primary-bg-subtle, #cfe2ff) !important;
 }
 
-.latency-table th.latency-header-highlight {
+.latency-table th.latency-header-highlight,
+.latency-table td.latency-header-highlight {
     background-color: var(--bs-primary-bg-subtle, #cfe2ff) !important;
 }
 

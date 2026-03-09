@@ -145,3 +145,86 @@ class TestCloud63Regions:
             mod._cloud63_pairs = {}
             mod._cloud63_loaded_at = 0.0
             mod._cloud63_loaded = False
+
+
+class TestIntraZoneRoutes:
+    """Test intra-zone endpoints."""
+
+    def test_intra_zone_regions(self) -> None:
+        import az_scout_latency_stats.intra_zone as mod
+
+        fake_records = [
+            {
+                "region": "westeurope",
+                "sourceZone": "1",
+                "destinationZone": "2",
+                "latency": "1.1 ms",
+            },
+            {
+                "region": "francecentral",
+                "sourceZone": "1",
+                "destinationZone": "2",
+                "latency": "1.4 ms",
+            },
+        ]
+
+        with patch.object(mod, "_fetch_intra_zone_data", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = fake_records
+            mod._intra_zone_loaded = False
+            mod._intra_zone_loaded_at = 0.0
+
+            resp = client.get("/intra-zone/regions")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["regions"] == ["francecentral", "westeurope"]
+
+        with mod._cache_lock:
+            mod._intra_zone_pairs = {}
+            mod._intra_zone_loaded_at = 0.0
+            mod._intra_zone_loaded = False
+
+    def test_intra_zone_matrix(self) -> None:
+        import az_scout_latency_stats.intra_zone as mod
+
+        fake_records = [
+            {
+                "region": "westeurope",
+                "sourceZone": "1",
+                "destinationZone": "2",
+                "latency": "1.1 ms",
+            },
+            {
+                "region": "westeurope",
+                "sourceZone": "1",
+                "destinationZone": "3",
+                "latency": "1.3 ms",
+            },
+            {
+                "region": "westeurope",
+                "sourceZone": "2",
+                "destinationZone": "3",
+                "latency": "1.2 ms",
+            },
+        ]
+
+        with patch.object(mod, "_fetch_intra_zone_data", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = fake_records
+            mod._intra_zone_loaded = False
+            mod._intra_zone_loaded_at = 0.0
+
+            resp = client.post("/intra-zone/matrix", json={"region": "westeurope"})
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["region"] == "westeurope"
+        assert data["zones"] == ["az1", "az2", "az3"]
+        assert data["methodology"] == (
+            "P50 (median, microseconds) is used when multiple samples exist."
+        )
+        assert "source" in data
+
+        with mod._cache_lock:
+            mod._intra_zone_pairs = {}
+            mod._intra_zone_loaded_at = 0.0
+            mod._intra_zone_loaded = False

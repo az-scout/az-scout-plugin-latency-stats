@@ -5,10 +5,17 @@ from typing import Literal
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-router = APIRouter()
+from az_scout_latency_stats.metadata import (
+    AZUREDOCS_DISCLAIMER,
+    AZUREDOCS_SOURCE,
+    CLOUD63_DISCLAIMER,
+    CLOUD63_SOURCE,
+    INTRA_ZONE_DISCLAIMER,
+    INTRA_ZONE_METHODOLOGY,
+    INTRA_ZONE_SOURCE,
+)
 
-_AZUREDOCS_SOURCE = "https://learn.microsoft.com/en-us/azure/networking/azure-network-latency"
-_CLOUD63_SOURCE = "https://latency.azure.cloud63.fr/"
+router = APIRouter()
 
 
 class LatencyMatrixRequest(BaseModel):
@@ -16,6 +23,12 @@ class LatencyMatrixRequest(BaseModel):
 
     regions: list[str]
     mode: Literal["azuredocs", "cloud63"] = "azuredocs"
+
+
+class IntraZoneMatrixRequest(BaseModel):
+    """Request body for intra-zone matrix endpoint."""
+
+    region: str
 
 
 @router.post("/matrix")
@@ -36,11 +49,8 @@ async def latency_matrix(body: LatencyMatrixRequest) -> dict[str, object]:
         return {
             **result,
             "mode": "cloud63",
-            "source": _CLOUD63_SOURCE,
-            "disclaimer": (
-                "Cloud63 latency values are crowd-sourced measurements. "
-                "Validate with in-tenant measurements."
-            ),
+            "source": CLOUD63_SOURCE,
+            "disclaimer": CLOUD63_DISCLAIMER,
         }
 
     from az_scout_latency_stats.latency import get_latency_matrix
@@ -49,10 +59,8 @@ async def latency_matrix(body: LatencyMatrixRequest) -> dict[str, object]:
     return {
         **result,
         "mode": "azuredocs",
-        "source": _AZUREDOCS_SOURCE,
-        "disclaimer": (
-            "Latency values are indicative and must be validated with in-tenant measurements."
-        ),
+        "source": AZUREDOCS_SOURCE,
+        "disclaimer": AZUREDOCS_DISCLAIMER,
     }
 
 
@@ -66,7 +74,7 @@ async def latency_pairs() -> dict[str, object]:
 
     return {
         "pairs": list_known_pairs(),
-        "source": _AZUREDOCS_SOURCE,
+        "source": AZUREDOCS_SOURCE,
     }
 
 
@@ -84,3 +92,32 @@ async def cloud63_regions() -> dict[str, object]:
 
     await refresh_cloud63_data()
     return {"regions": get_cloud63_regions()}
+
+
+@router.get("/intra-zone/regions")
+async def intra_zone_regions() -> dict[str, object]:
+    """Return the list of regions available for intra-zone latency data."""
+    from az_scout_latency_stats.intra_zone import (
+        get_intra_zone_regions,
+        refresh_intra_zone_data,
+    )
+
+    await refresh_intra_zone_data()
+    return {"regions": get_intra_zone_regions()}
+
+
+@router.post("/intra-zone/matrix")
+async def intra_zone_matrix(body: IntraZoneMatrixRequest) -> dict[str, object]:
+    """Return intra-region AZ latency matrix (P50) for a selected region."""
+    from az_scout_latency_stats.intra_zone import (
+        get_intra_zone_matrix,
+        refresh_intra_zone_data,
+    )
+
+    await refresh_intra_zone_data()
+    return {
+        **get_intra_zone_matrix(body.region),
+        "source": INTRA_ZONE_SOURCE,
+        "disclaimer": INTRA_ZONE_DISCLAIMER,
+        "methodology": f"{INTRA_ZONE_METHODOLOGY} is used when multiple samples exist.",
+    }

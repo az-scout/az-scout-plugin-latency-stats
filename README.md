@@ -7,8 +7,8 @@ Inter-region latency statistics plugin for [az-scout](https://github.com/lrivall
 ## Features
 
 - **Latency dataset** — static latency matrix based on [Microsoft published statistics](https://learn.microsoft.com/en-us/azure/networking/azure-network-latency)
-- **API endpoints** — `POST /plugins/latency-stats/matrix` for pairwise latency matrices, `GET /plugins/latency-stats/pairs` to list all known pairs
-- **MCP tool** — `region_latency(source_region, target_region)` returns indicative RTT between two Azure regions
+- **API endpoints** — inter-region via `POST /plugins/latency-stats/matrix`, and intra-region (AZ) via `POST /plugins/latency-stats/intra-zone/matrix`
+- **MCP tools** — `region_latency(source_region, target_region)` for inter-region RTT and `intra_region_latency(region, source_zone, target_zone)` for intra-region P50 latency in µs
 - **UI tab** — interactive D3.js force-directed graph where regions are nodes and edges show latency in ms
 - **URL hash routing** — `#latency-stats` selects the plugin tab
 
@@ -52,7 +52,8 @@ az-scout-plugin-latency-stats/
             ├── html/
             │   └── latency-tab.html # HTML fragment (fetched by JS at runtime)
             └── js/
-                └── latency-tab.js   # Tab UI logic (auto-loaded via js_entry)
+              ├── latency-tab.js         # Main tab bootstrap + inter-region UI logic
+              └── latency-tab-intra.js   # Intra-zone graph/table rendering + sync logic
 ```
 
 ## How it works
@@ -73,12 +74,18 @@ curl -X POST http://localhost:8080/plugins/latency-stats/matrix \
 
 # All known pairs
 curl http://localhost:8080/plugins/latency-stats/pairs
+
+# Intra-region AZ matrix
+curl -X POST http://localhost:8080/plugins/latency-stats/intra-zone/matrix \
+  -H "Content-Type: application/json" \
+  -d '{"region": "westeurope"}'
 ```
 
 ### MCP tool
 
 ```
 region_latency(source_region="francecentral", target_region="westeurope")
+intra_region_latency(region="westeurope", source_zone="az1", target_zone="az2")
 ```
 
 ## Quality checks
