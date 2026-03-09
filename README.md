@@ -1,15 +1,17 @@
 # az-scout-plugin-latency-stats
 
-Inter-region latency statistics plugin for [az-scout](https://github.com/lrivallain/az-scout).
+Inter-region and intra-region (Availability Zone) latency plugin for [az-scout](https://github.com/lrivallain/az-scout).
 
 <img width="1088" height="1361" alt="Screnshot of latency plugin" src="https://github.com/user-attachments/assets/53b51880-c2c4-4381-89eb-e5adda78de1a" />
 
 ## Features
 
 - **Latency dataset** — static latency matrix based on [Microsoft published statistics](https://learn.microsoft.com/en-us/azure/networking/azure-network-latency)
-- **API endpoints** — `POST /plugins/latency-stats/matrix` for pairwise latency matrices, `GET /plugins/latency-stats/pairs` to list all known pairs
-- **MCP tool** — `region_latency(source_region, target_region)` returns indicative RTT between two Azure regions
-- **UI tab** — interactive D3.js force-directed graph where regions are nodes and edges show latency in ms
+- **Cloud63 dataset support** — optional inter-region crowd-sourced measurements via `mode="cloud63"`
+- **Intra-zone dataset support** — benchmark-based AZ latency matrix from Cloud63 benchmark API
+- **API endpoints** — inter-region and intra-region endpoints for matrix and available regions
+- **MCP tools** — `region_latency(...)` for inter-region RTT and `intra_region_latency(...)` for intra-region P50 latency in µs
+- **UI tab** — interactive D3.js views with inter/intra scope switch, map/table synchronization, and bidirectional hover highlighting
 - **URL hash routing** — `#latency-stats` selects the plugin tab
 
 ## Setup
@@ -43,25 +45,33 @@ az-scout-plugin-latency-stats/
 └── src/
     └── az_scout_latency_stats/
         ├── __init__.py          # Plugin class + module-level `plugin` instance
+    ├── cloud63.py           # Cloud63 data fetch/cache + inter-region matrix API
+    ├── intra_zone.py        # Intra-zone benchmark fetch/cache + AZ matrix API
         ├── latency.py           # Static latency dataset + public API
+    ├── metadata.py          # Shared source/disclaimer/methodology constants
         ├── routes.py            # FastAPI APIRouter (optional)
         ├── tools.py             # MCP tool functions (optional)
         └── static/
             ├── css/
             │   └── latency.css      # Plugin styles (auto-loaded via css_entry)
+      ├── data/
+      │   └── region-coordinates.json
             ├── html/
             │   └── latency-tab.html # HTML fragment (fetched by JS at runtime)
             └── js/
-                └── latency-tab.js   # Tab UI logic (auto-loaded via js_entry)
+        ├── latency-tab.js         # Main tab bootstrap + inter-region UI logic
+        └── latency-tab-intra.js   # Intra-zone graph/table rendering + sync logic
 ```
 
 ## How it works
 
-1. The plugin JS loads the HTML fragment into `#plugin-tab-latency-stats`.
-2. Regions are populated from the main app's `regions` global.
-3. The user selects 2+ regions and clicks **Show Latency Graph**.
-4. The plugin calls `POST /plugins/latency-stats/matrix` with the selected regions.
-5. A D3.js force-directed graph renders regions as nodes with RTT-labelled edges.
+1. The plugin loads the HTML fragment into `#plugin-tab-latency-stats`.
+2. The user selects a scope:
+   - **Inter-region**: select regions and choose source mode (`azuredocs` or `cloud63`).
+   - **Intra-region (AZ)**: uses the main app region selector (`#region-select`).
+3. Inter-region calls `POST /plugins/latency-stats/matrix` and renders world map + matrix table.
+4. Intra-region calls `POST /plugins/latency-stats/intra-zone/matrix` and renders AZ graph + pair table.
+5. Hover interactions are synchronized between graph links and table values in both directions.
 
 ### API
 
@@ -69,16 +79,29 @@ az-scout-plugin-latency-stats/
 # Pairwise matrix
 curl -X POST http://localhost:8080/plugins/latency-stats/matrix \
   -H "Content-Type: application/json" \
-  -d '{"regions": ["francecentral", "westeurope", "eastus"]}'
+  -d '{"regions": ["francecentral", "westeurope", "eastus"], "mode": "azuredocs"}'
 
 # All known pairs
 curl http://localhost:8080/plugins/latency-stats/pairs
+
+# Cloud63 available regions
+curl http://localhost:8080/plugins/latency-stats/cloud63-regions
+
+# Intra-zone available regions
+curl http://localhost:8080/plugins/latency-stats/intra-zone/regions
+
+# Intra-region AZ matrix
+curl -X POST http://localhost:8080/plugins/latency-stats/intra-zone/matrix \
+  -H "Content-Type: application/json" \
+  -d '{"region": "westeurope"}'
 ```
 
 ### MCP tool
 
 ```
 region_latency(source_region="francecentral", target_region="westeurope")
+region_latency(source_region="francecentral", target_region="westeurope", mode="cloud63")
+intra_region_latency(region="westeurope", source_zone="az1", target_zone="az2")
 ```
 
 ## Quality checks
@@ -110,9 +133,13 @@ The `.github/copilot-instructions.md` file provides context to GitHub Copilot ab
 the plugin structure, conventions, and az-scout plugin API. It helps Copilot generate
 code that follows the project patterns.
 
-## Data source
+## Data sources
 
-Latency values are approximate median round-trip times from the [Azure Network Latency](https://learn.microsoft.com/en-us/azure/networking/azure-network-latency) page. Always validate with in-tenant measurements.
+- **Azure Docs** (inter-region): [Azure Network Latency](https://learn.microsoft.com/en-us/azure/networking/azure-network-latency)
+- **Cloud63** (inter-region optional mode): [Azure Latency Test](https://latency.azure.cloud63.fr/)
+- **Cloud63 benchmark API** (intra-region AZ): `https://fa-azure-network-benchmark.azurewebsites.net/api/data`
+
+Intra-region outputs are exposed in **microseconds** (`latencyUsP50`). Always validate with in-tenant measurements.
 
 ## License
 
@@ -120,4 +147,4 @@ Latency values are approximate median round-trip times from the [Azure Network L
 
 ## Disclaimer
 
-> **This tool is not affiliated with Microsoft.** All capacity, pricing, and latency information are indicative and not a guarantee of deployment success. Spot placement scores are probabilistic. Quota values and pricing are dynamic and may change between planning and actual deployment. Latency values are based on [Microsoft published statistics](https://learn.microsoft.com/en-us/azure/networking/azure-network-latency) and must be validated with in-tenant measurements.
+> **This tool is not affiliated with Microsoft.** All capacity, pricing, and latency information are indicative and not a guarantee of deployment success. Spot placement scores are probabilistic. Quota values and pricing are dynamic and may change between planning and actual deployment. Latency values are sourced from public benchmark/documentation endpoints and must be validated with in-tenant measurements.

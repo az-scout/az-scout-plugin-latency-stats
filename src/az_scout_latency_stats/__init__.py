@@ -36,8 +36,10 @@ class LatencyStatsPlugin:
         """Return API routes for latency data."""
         if not self._prewarmed:
             from az_scout_latency_stats.cloud63 import prewarm_cloud63
+            from az_scout_latency_stats.intra_zone import prewarm_intra_zone
 
             prewarm_cloud63()
+            prewarm_intra_zone()
             self._prewarmed = True
 
         from az_scout_latency_stats.routes import router
@@ -46,9 +48,9 @@ class LatencyStatsPlugin:
 
     def get_mcp_tools(self) -> list[Callable[..., Any]] | None:
         """Return MCP tool functions for latency queries."""
-        from az_scout_latency_stats.tools import region_latency
+        from az_scout_latency_stats.tools import intra_region_latency, region_latency
 
-        return [region_latency]
+        return [region_latency, intra_region_latency]
 
     def get_static_dir(self) -> Path | None:
         """Return path to static assets directory."""
@@ -72,7 +74,9 @@ class LatencyStatsPlugin:
             "For inter-region latency questions, use the region_latency tool. "
             "It supports two data sources: 'azuredocs' (Microsoft published stats) "
             "and 'cloud63' (crowd-sourced measurements from the Azure Latency Test project). "
-            "Default to 'azuredocs' unless the user asks for cloud63 data."
+            "Default to 'azuredocs' unless the user asks for cloud63 data. "
+            "For intra-region (Availability Zone) latency questions, use the "
+            "intra_region_latency tool and report P50 median latency values."
         )
 
     def get_chat_modes(self) -> list[ChatMode] | None:
