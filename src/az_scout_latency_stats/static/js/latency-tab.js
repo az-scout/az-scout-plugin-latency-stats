@@ -356,7 +356,7 @@
                     throw new Error("Intra module failed to load");
                 }
                 window.LatencyStatsIntra.render(data, intraGraphEl, intraTableEl);
-                intraStatusEl.textContent = `Showing ${data.zones.length} Availability Zones (P50).`;
+                intraStatusEl.textContent = `Showing ${data.zones.length} Availability Zones (P50 RTT).`;
             } catch (e) {
                 intraStatusEl.textContent = `Error: ${e.message}`;
                 intraGraphEl.innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;

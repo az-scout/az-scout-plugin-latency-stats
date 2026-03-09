@@ -33,7 +33,7 @@ class TestParseMs:
 
 
 class TestProcessIntraZoneRecords:
-    """Unit tests for record processing and P50 aggregation."""
+    """Unit tests for record processing and P50 RTT aggregation."""
 
     def test_aggregates_p50_for_pair(self) -> None:
         records = [
@@ -59,8 +59,8 @@ class TestProcessIntraZoneRecords:
 
         pairs = _process_intra_zone_records(records)
 
-        # Median of [1200, 1800, 2400] µs = 1800 µs
-        assert pairs[("westeurope", "az1", "az2")] == 1800.0
+        # RTT = P50(az1→az2=[1200,2400]) + P50(az2→az1=[1800]) = 1800 + 1800
+        assert pairs[("westeurope", "az1", "az2")] == 3600.0
 
     def test_skips_missing_fields(self) -> None:
         records = [
@@ -78,16 +78,26 @@ class TestProcessIntraZoneRecords:
                 "latencyP50": 1.1,
             },
             {
+                "source": "westeurope-az2",
+                "destination": "westeurope-az1",
+                "latencyP50": 1.2,
+            },
+            {
                 "source": "westeurope-zone2",
                 "destination": "westeurope-zone3",
                 "latencyP50": "1.3 ms",
+            },
+            {
+                "source": "westeurope-zone3",
+                "destination": "westeurope-zone2",
+                "latencyP50": "1.5 ms",
             },
         ]
 
         pairs = _process_intra_zone_records(records)
 
-        assert pairs[("westeurope", "az1", "az2")] == 1.1
-        assert pairs[("westeurope", "az2", "az3")] == 1300.0
+        assert pairs[("westeurope", "az1", "az2")] == 1.1 + 1.2
+        assert pairs[("westeurope", "az2", "az3")] == 1300.0 + 1500.0
 
     def test_extracts_from_rowkey_source_destination_shape(self) -> None:
         records = [
@@ -103,12 +113,24 @@ class TestProcessIntraZoneRecords:
                 "Destination": "az3",
                 "Latency": "214 us",
             },
+            {
+                "RowKey": "frc",
+                "Source": "az3",
+                "Destination": "az1",
+                "Latency": "220 us",
+            },
+            {
+                "RowKey": "frc",
+                "Source": "az3",
+                "Destination": "az1",
+                "Latency": "228 us",
+            },
         ]
 
         pairs = _process_intra_zone_records(records)
 
-        # median of [186, 214] = 200 µs
-        assert pairs[("francecentral", "az1", "az3")] == 200.0
+        # RTT = P50(az1→az3=[186,214]) + P50(az3→az1=[220,228]) = 200 + 224
+        assert pairs[("francecentral", "az1", "az3")] == 424.0
 
     def test_preserves_microsecond_precision_without_rounding(self) -> None:
         records = [
@@ -124,12 +146,24 @@ class TestProcessIntraZoneRecords:
                 "Destination": "az2",
                 "Latency": "216.18 us",
             },
+            {
+                "RowKey": "sdc",
+                "Source": "az2",
+                "Destination": "az1",
+                "Latency": "113.03 us",
+            },
+            {
+                "RowKey": "sdc",
+                "Source": "az2",
+                "Destination": "az1",
+                "Latency": "113.07 us",
+            },
         ]
 
         pairs = _process_intra_zone_records(records)
 
-        # median of [216.12, 216.18] = 216.15 µs (must not be rounded)
-        assert pairs[("swedencentral", "az1", "az2")] == pytest.approx(216.15)
+        # RTT = P50(216.12,216.18) + P50(113.03,113.07) = 216.15 + 113.05
+        assert pairs[("swedencentral", "az1", "az2")] == pytest.approx(329.2)
 
 
 @pytest.fixture()
@@ -195,7 +229,13 @@ class TestRefreshIntraZone:
                 "sourceZone": "1",
                 "destinationZone": "2",
                 "latency": "1.1 ms",
-            }
+            },
+            {
+                "region": "westeurope",
+                "sourceZone": "2",
+                "destinationZone": "1",
+                "latency": "1.4 ms",
+            },
         ]
 
         with patch.object(mod, "_fetch_intra_zone_data", new_callable=AsyncMock) as mock_fetch:
@@ -207,7 +247,7 @@ class TestRefreshIntraZone:
 
             mock_fetch.assert_awaited_once()
             assert mod._intra_zone_loaded is True
-            assert mod._intra_zone_pairs[("westeurope", "az1", "az2")] == 1100.0
+            assert mod._intra_zone_pairs[("westeurope", "az1", "az2")] == 2500.0
 
         with mod._cache_lock:
             mod._intra_zone_pairs = {}

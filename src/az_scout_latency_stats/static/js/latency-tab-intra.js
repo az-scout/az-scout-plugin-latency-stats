@@ -281,7 +281,7 @@
                 <tr>
                     <th>Between…</th>
                     <th>And…</th>
-                    <th>P50 Latency (µs)</th>
+                    <th>P50 RTT (µs)</th>
                 </tr>
             </thead>
             <tbody></tbody>

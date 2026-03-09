@@ -319,8 +319,14 @@ async def _fetch_intra_zone_data() -> list[dict[str, Any]]:
 
 
 def _process_intra_zone_records(records: list[dict[str, Any]]) -> dict[tuple[str, str, str], float]:
-    """Aggregate records and keep P50 (median) for each region/zone-pair."""
-    grouped: dict[tuple[str, str, str], list[float]] = defaultdict(list)
+    """Aggregate records and keep P50 RTT for each region/zone-pair.
+
+    RTT is computed as:
+    - P50(one-way zoneA→zoneB) + P50(one-way zoneB→zoneA)
+
+    Pairs missing one direction are excluded.
+    """
+    grouped_directional: dict[tuple[str, str, str], list[float]] = defaultdict(list)
 
     for rec in records:
         region = _extract_region(rec)
@@ -338,12 +344,22 @@ def _process_intra_zone_records(records: list[dict[str, Any]]) -> dict[tuple[str
         if latency_sample is None:
             continue
 
-        zone_a, zone_b = sorted(zones)
-        grouped[(region, zone_a, zone_b)].append(latency_sample)
+        source_zone, target_zone = zones
+        grouped_directional[(region, source_zone, target_zone)].append(latency_sample)
+
+    directional_p50: dict[tuple[str, str, str], float] = {}
+    for key, values in grouped_directional.items():
+        directional_p50[key] = float(statistics.median(values))
 
     p50_pairs: dict[tuple[str, str, str], float] = {}
-    for key, values in grouped.items():
-        p50_pairs[key] = float(statistics.median(values))
+    for region, zone_a, zone_b in directional_p50:
+        if zone_a >= zone_b:
+            continue
+        forward = directional_p50.get((region, zone_a, zone_b))
+        reverse = directional_p50.get((region, zone_b, zone_a))
+        if forward is None or reverse is None:
+            continue
+        p50_pairs[(region, zone_a, zone_b)] = forward + reverse
 
     return p50_pairs
 
@@ -384,7 +400,7 @@ def get_intra_zone_regions() -> list[str]:
 
 
 def get_intra_zone_latency_us(region: str, zone_a: str, zone_b: str) -> float | None:
-    """Return P50 latency for a zone pair within a region (in microseconds)."""
+    """Return P50 RTT for a zone pair within a region (in microseconds)."""
     normalized_region = _normalise_region(region)
     normalized_a = _normalise_zone(zone_a)
     normalized_b = _normalise_zone(zone_b)

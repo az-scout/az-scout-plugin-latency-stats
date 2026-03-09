@@ -18,4 +18,4 @@ INTRA_ZONE_DISCLAIMER = (
     "Validate with in-tenant measurements."
 )
 
-INTRA_ZONE_METHODOLOGY = "P50 (median, microseconds)"
+INTRA_ZONE_METHODOLOGY = "P50 RTT (sum of directional medians, microseconds)"

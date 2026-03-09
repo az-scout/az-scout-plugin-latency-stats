@@ -161,10 +161,22 @@ class TestIntraZoneRoutes:
                 "latency": "1.1 ms",
             },
             {
+                "region": "westeurope",
+                "sourceZone": "2",
+                "destinationZone": "1",
+                "latency": "1.2 ms",
+            },
+            {
                 "region": "francecentral",
                 "sourceZone": "1",
                 "destinationZone": "2",
                 "latency": "1.4 ms",
+            },
+            {
+                "region": "francecentral",
+                "sourceZone": "2",
+                "destinationZone": "1",
+                "latency": "1.3 ms",
             },
         ]
 
@@ -196,15 +208,33 @@ class TestIntraZoneRoutes:
             },
             {
                 "region": "westeurope",
+                "sourceZone": "2",
+                "destinationZone": "1",
+                "latency": "1.0 ms",
+            },
+            {
+                "region": "westeurope",
                 "sourceZone": "1",
                 "destinationZone": "3",
                 "latency": "1.3 ms",
             },
             {
                 "region": "westeurope",
+                "sourceZone": "3",
+                "destinationZone": "1",
+                "latency": "1.2 ms",
+            },
+            {
+                "region": "westeurope",
                 "sourceZone": "2",
                 "destinationZone": "3",
                 "latency": "1.2 ms",
+            },
+            {
+                "region": "westeurope",
+                "sourceZone": "3",
+                "destinationZone": "2",
+                "latency": "1.1 ms",
             },
         ]
 
@@ -220,7 +250,8 @@ class TestIntraZoneRoutes:
         assert data["region"] == "westeurope"
         assert data["zones"] == ["az1", "az2", "az3"]
         assert data["methodology"] == (
-            "P50 (median, microseconds) is used when multiple samples exist."
+            "P50 RTT (sum of directional medians, microseconds) "
+            "is used when multiple samples exist."
         )
         assert "source" in data
 
