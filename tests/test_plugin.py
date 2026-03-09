@@ -12,9 +12,10 @@ class TestLatencyStatsPlugin:
     """Unit tests for LatencyStatsPlugin."""
 
     def test_get_router_prewarms_once_and_is_lazy(self) -> None:
-        with patch("az_scout_latency_stats.cloud63.prewarm_cloud63") as cloud63_prewarm_mock, patch(
-            "az_scout_latency_stats.intra_zone.prewarm_intra_zone"
-        ) as intra_prewarm_mock:
+        with (
+            patch("az_scout_latency_stats.cloud63.prewarm_cloud63") as cloud63_prewarm_mock,
+            patch("az_scout_latency_stats.intra_zone.prewarm_intra_zone") as intra_prewarm_mock,
+        ):
             plugin = LatencyStatsPlugin()
             cloud63_prewarm_mock.assert_not_called()
             intra_prewarm_mock.assert_not_called()

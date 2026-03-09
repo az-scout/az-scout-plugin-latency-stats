@@ -9,13 +9,11 @@ AZUREDOCS_DISCLAIMER = (
 )
 
 CLOUD63_DISCLAIMER = (
-    "Cloud63 latency values are crowd-sourced measurements. "
-    "Validate with in-tenant measurements."
+    "Cloud63 latency values are crowd-sourced measurements. Validate with in-tenant measurements."
 )
 
 INTRA_ZONE_DISCLAIMER = (
-    "Intra-zone latency values are indicative benchmark data. "
-    "Validate with in-tenant measurements."
+    "Intra-zone latency values are indicative benchmark data. Validate with in-tenant measurements."
 )
 
 INTRA_ZONE_METHODOLOGY = "P50 RTT (sum of directional medians, microseconds)"
