@@ -46,12 +46,19 @@
 
         <!-- Collapsible region picker -->
             <div class="latency-selector-popover" id="latency-selector-popover">
-            <input type="text" class="form-control form-control-sm latency-search-input"
-                   id="latency-region-filter" placeholder="Filter regions…" autocomplete="off">
-            <select class="form-select form-select-sm" id="latency-region-select" multiple size="12">
-                <option value="" disabled>Loading regions…</option>
-            </select>
-            <div class="form-text">Hold Ctrl / ⌘ to select multiple.</div>
+            <div class="input-group input-group-sm mb-1">
+                <input type="text" class="form-control latency-search-input"
+                       id="latency-region-filter" placeholder="Filter regions…" autocomplete="off">
+                <button type="button" class="btn btn-outline-secondary" id="latency-select-all-btn" title="Select visible">
+                    <i class="bi bi-check-all"></i>
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="latency-deselect-all-btn" title="Clear all">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div id="latency-region-list" class="latency-region-checklist">
+                <span class="text-body-secondary small">Loading regions…</span>
+            </div>
             </div>
         </div>
 

@@ -74,8 +74,10 @@
     // 2. Plugin initialisation
     // -----------------------------------------------------------------------
     function initLatencyPlugin() {
-        const regionSelect  = document.getElementById("latency-region-select");
+        const regionList     = document.getElementById("latency-region-list");
         const filterInput   = document.getElementById("latency-region-filter");
+        const selectAllBtn  = document.getElementById("latency-select-all-btn");
+        const deselectAllBtn = document.getElementById("latency-deselect-all-btn");
         const mapEl         = document.getElementById("latency-map-container");
         const legendEl      = document.getElementById("latency-legend");
         const tableEl       = document.getElementById("latency-table-container");
@@ -250,11 +252,11 @@
             }
         }
 
-        // Populate region select from the plugin's own coordinates data
+        // Populate region checklist from the plugin's own coordinates data
         function populateRegions(filter) {
-            regionSelect.innerHTML = "";
+            regionList.innerHTML = "";
             if (!regionCoords || !Object.keys(regionCoords).length) {
-                regionSelect.innerHTML = '<option value="" disabled>Loading regions…</option>';
+                regionList.innerHTML = '<span class="text-body-secondary small">Loading regions…</span>';
                 return;
             }
             if (!allRegionEntries.length) {
@@ -265,12 +267,29 @@
             allRegionEntries.forEach(([name, info]) => {
                 const display = info.displayName || name;
                 if (q && !display.toLowerCase().includes(q) && !name.toLowerCase().includes(q)) return;
-                const opt = document.createElement("option");
-                opt.value = name;
-                opt.textContent = display;
-                if (selectedRegions.has(name)) opt.selected = true;
-                regionSelect.appendChild(opt);
+                const label = document.createElement("label");
+                label.title = display;
+                const cb = document.createElement("input");
+                cb.type = "checkbox";
+                cb.className = "form-check-input me-1";
+                cb.value = name;
+                cb.checked = selectedRegions.has(name);
+                cb.addEventListener("change", () => {
+                    if (cb.checked) selectedRegions.add(name);
+                    else selectedRegions.delete(name);
+                    updateBadge();
+                    fetchAndRender();
+                });
+                label.appendChild(cb);
+                label.appendChild(document.createTextNode(display));
+                regionList.appendChild(label);
             });
+        }
+
+        function updateBadge() {
+            selBadge.textContent = selectedRegions.size
+                ? `${selectedRegions.size} region${selectedRegions.size > 1 ? "s" : ""} selected`
+                : "";
         }
 
         // Filter input handler
@@ -278,18 +297,23 @@
             populateRegions(filterInput.value);
         });
 
-        // Update badge and auto-render when >= 2 regions selected
-        regionSelect.addEventListener("change", () => {
-            if (getScope() !== "inter") return;
-            // Sync persistent set: add/remove only options currently in the DOM
-            for (const opt of regionSelect.options) {
-                if (!opt.value) continue;
-                if (opt.selected) selectedRegions.add(opt.value);
-                else selectedRegions.delete(opt.value);
-            }
-            selBadge.textContent = selectedRegions.size
-                ? `${selectedRegions.size} region${selectedRegions.size > 1 ? "s" : ""} selected`
-                : "";
+        // Select all visible regions
+        selectAllBtn.addEventListener("click", () => {
+            regionList.querySelectorAll("input[type=checkbox]").forEach(cb => {
+                cb.checked = true;
+                selectedRegions.add(cb.value);
+            });
+            updateBadge();
+            fetchAndRender();
+        });
+
+        // Deselect all regions
+        deselectAllBtn.addEventListener("click", () => {
+            selectedRegions.clear();
+            regionList.querySelectorAll("input[type=checkbox]").forEach(cb => {
+                cb.checked = false;
+            });
+            updateBadge();
             fetchAndRender();
         });
 
