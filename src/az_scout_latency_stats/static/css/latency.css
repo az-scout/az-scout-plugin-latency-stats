@@ -44,13 +44,6 @@
     display: block;
 }
 
-/* ---- Region picker buttons ---- */
-.latency-selector-popover .input-group .btn {
-    padding: 0.25rem 0.4rem;
-    font-size: 0.75rem;
-    line-height: 1;
-}
-
 /* ---- Region checklist (checkbox list) ---- */
 .latency-region-checklist {
     max-height: 22em;   /* ~10 visible items */
@@ -443,12 +436,6 @@
 .latency-table tbody th,
 .latency-table thead th {
     transition: background-color 0.12s ease;
-}
-
-/* ---- Region search / filter ---- */
-.latency-search-input {
-    margin-bottom: 0.35rem;
-    font-size: 0.8rem;
 }
 
 /* ---- Methodology footer ---- */
