@@ -74,8 +74,10 @@
     // 2. Plugin initialisation
     // -----------------------------------------------------------------------
     function initLatencyPlugin() {
-        const regionSelect  = document.getElementById("latency-region-select");
+        const regionList     = document.getElementById("latency-region-list");
         const filterInput   = document.getElementById("latency-region-filter");
+        const selectAllBtn  = document.getElementById("latency-select-all-btn");
+        const deselectAllBtn = document.getElementById("latency-deselect-all-btn");
         const mapEl         = document.getElementById("latency-map-container");
         const legendEl      = document.getElementById("latency-legend");
         const tableEl       = document.getElementById("latency-table-container");
@@ -91,6 +93,7 @@
         const interzoneStatusEl = document.getElementById("latency-interzone-status");
         const coreRegionSelect = document.getElementById("region-select");
         const scopeRadios = document.querySelectorAll('input[name="latency-scope"]');
+        const selectedRegions = new Set(); // persists across filter rebuilds
 
         // Mode toggle (azuredocs / cloud63)
         const modeRadios = document.querySelectorAll('input[name="latency-mode"]');
@@ -191,8 +194,7 @@
 
         // Close popover on outside click — only if at least one region is selected
         document.addEventListener("click", (e) => {
-            const selected = Array.from(regionSelect.selectedOptions);
-            if (selected.length === 0) return; // keep open until something is selected
+            if (selectedRegions.size === 0) return; // keep open until something is selected
             if (!popover.contains(e.target) && e.target !== toggleBtn && !toggleBtn.contains(e.target)) {
                 popover.classList.remove("open");
             }
@@ -250,14 +252,11 @@
             }
         }
 
-        // Populate region select from the plugin's own coordinates data
+        // Populate region checklist from the plugin's own coordinates data
         function populateRegions(filter) {
-            const previousSelection = new Set(
-                Array.from(regionSelect.selectedOptions).map(o => o.value)
-            );
-            regionSelect.innerHTML = "";
+            regionList.innerHTML = "";
             if (!regionCoords || !Object.keys(regionCoords).length) {
-                regionSelect.innerHTML = '<option value="" disabled>Loading regions…</option>';
+                regionList.innerHTML = '<span class="text-body-secondary small">Loading regions…</span>';
                 return;
             }
             if (!allRegionEntries.length) {
@@ -268,12 +267,29 @@
             allRegionEntries.forEach(([name, info]) => {
                 const display = info.displayName || name;
                 if (q && !display.toLowerCase().includes(q) && !name.toLowerCase().includes(q)) return;
-                const opt = document.createElement("option");
-                opt.value = name;
-                opt.textContent = display;
-                if (previousSelection.has(name)) opt.selected = true;
-                regionSelect.appendChild(opt);
+                const label = document.createElement("label");
+                label.title = display;
+                const cb = document.createElement("input");
+                cb.type = "checkbox";
+                cb.className = "form-check-input me-1";
+                cb.value = name;
+                cb.checked = selectedRegions.has(name);
+                cb.addEventListener("change", () => {
+                    if (cb.checked) selectedRegions.add(name);
+                    else selectedRegions.delete(name);
+                    updateBadge();
+                    fetchAndRender();
+                });
+                label.appendChild(cb);
+                label.appendChild(document.createTextNode(display));
+                regionList.appendChild(label);
             });
+        }
+
+        function updateBadge() {
+            selBadge.textContent = selectedRegions.size
+                ? `${selectedRegions.size} region${selectedRegions.size > 1 ? "s" : ""} selected`
+                : "";
         }
 
         // Filter input handler
@@ -281,13 +297,23 @@
             populateRegions(filterInput.value);
         });
 
-        // Update badge and auto-render when >= 2 regions selected
-        regionSelect.addEventListener("change", () => {
-            if (getScope() !== "inter") return;
-            const selected = Array.from(regionSelect.selectedOptions).map(o => o.value);
-            selBadge.textContent = selected.length
-                ? `${selected.length} region${selected.length > 1 ? "s" : ""} selected`
-                : "";
+        // Select all visible regions
+        selectAllBtn.addEventListener("click", () => {
+            regionList.querySelectorAll("input[type=checkbox]").forEach(cb => {
+                cb.checked = true;
+                selectedRegions.add(cb.value);
+            });
+            updateBadge();
+            fetchAndRender();
+        });
+
+        // Deselect all regions
+        deselectAllBtn.addEventListener("click", () => {
+            selectedRegions.clear();
+            regionList.querySelectorAll("input[type=checkbox]").forEach(cb => {
+                cb.checked = false;
+            });
+            updateBadge();
             fetchAndRender();
         });
 
@@ -296,7 +322,7 @@
         // -----------------------------------------------------------------
         async function fetchAndRender() {
             if (getScope() !== "inter") return;
-            const selected = Array.from(regionSelect.selectedOptions).map(o => o.value);
+            const selected = Array.from(selectedRegions);
             if (selected.length < 2) {
                 renderEmptyMap(mapEl);
                 legendEl.innerHTML = "";

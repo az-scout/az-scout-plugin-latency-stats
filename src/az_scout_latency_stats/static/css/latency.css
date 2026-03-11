@@ -44,9 +44,23 @@
     display: block;
 }
 
-.latency-selector-popover select {
-    width: 100%;
-    margin-top: 0.35rem;
+/* ---- Region checklist (checkbox list) ---- */
+.latency-region-checklist {
+    max-height: 22em;   /* ~10 visible items */
+    overflow-y: auto;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: var(--bs-border-radius);
+    padding: 0.35rem 0.5rem;
+}
+
+.latency-region-checklist label {
+    display: block;
+    padding: 0.12rem 0;
+    cursor: pointer;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* ---- Content row: map + table side by side ---- */
@@ -422,12 +436,6 @@
 .latency-table tbody th,
 .latency-table thead th {
     transition: background-color 0.12s ease;
-}
-
-/* ---- Region search / filter ---- */
-.latency-search-input {
-    margin-bottom: 0.35rem;
-    font-size: 0.8rem;
 }
 
 /* ---- Methodology footer ---- */
