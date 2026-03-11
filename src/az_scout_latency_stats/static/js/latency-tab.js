@@ -91,6 +91,7 @@
         const interzoneStatusEl = document.getElementById("latency-interzone-status");
         const coreRegionSelect = document.getElementById("region-select");
         const scopeRadios = document.querySelectorAll('input[name="latency-scope"]');
+        const selectedRegions = new Set(); // persists across filter rebuilds
 
         // Mode toggle (azuredocs / cloud63)
         const modeRadios = document.querySelectorAll('input[name="latency-mode"]');
@@ -191,8 +192,7 @@
 
         // Close popover on outside click — only if at least one region is selected
         document.addEventListener("click", (e) => {
-            const selected = Array.from(regionSelect.selectedOptions);
-            if (selected.length === 0) return; // keep open until something is selected
+            if (selectedRegions.size === 0) return; // keep open until something is selected
             if (!popover.contains(e.target) && e.target !== toggleBtn && !toggleBtn.contains(e.target)) {
                 popover.classList.remove("open");
             }
@@ -252,9 +252,6 @@
 
         // Populate region select from the plugin's own coordinates data
         function populateRegions(filter) {
-            const previousSelection = new Set(
-                Array.from(regionSelect.selectedOptions).map(o => o.value)
-            );
             regionSelect.innerHTML = "";
             if (!regionCoords || !Object.keys(regionCoords).length) {
                 regionSelect.innerHTML = '<option value="" disabled>Loading regions…</option>';
@@ -271,7 +268,7 @@
                 const opt = document.createElement("option");
                 opt.value = name;
                 opt.textContent = display;
-                if (previousSelection.has(name)) opt.selected = true;
+                if (selectedRegions.has(name)) opt.selected = true;
                 regionSelect.appendChild(opt);
             });
         }
@@ -284,9 +281,14 @@
         // Update badge and auto-render when >= 2 regions selected
         regionSelect.addEventListener("change", () => {
             if (getScope() !== "inter") return;
-            const selected = Array.from(regionSelect.selectedOptions).map(o => o.value);
-            selBadge.textContent = selected.length
-                ? `${selected.length} region${selected.length > 1 ? "s" : ""} selected`
+            // Sync persistent set: add/remove only options currently in the DOM
+            for (const opt of regionSelect.options) {
+                if (!opt.value) continue;
+                if (opt.selected) selectedRegions.add(opt.value);
+                else selectedRegions.delete(opt.value);
+            }
+            selBadge.textContent = selectedRegions.size
+                ? `${selectedRegions.size} region${selectedRegions.size > 1 ? "s" : ""} selected`
                 : "";
             fetchAndRender();
         });
@@ -296,7 +298,7 @@
         // -----------------------------------------------------------------
         async function fetchAndRender() {
             if (getScope() !== "inter") return;
-            const selected = Array.from(regionSelect.selectedOptions).map(o => o.value);
+            const selected = Array.from(selectedRegions);
             if (selected.length < 2) {
                 renderEmptyMap(mapEl);
                 legendEl.innerHTML = "";
