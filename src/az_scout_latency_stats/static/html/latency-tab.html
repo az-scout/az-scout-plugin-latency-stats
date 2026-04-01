@@ -13,14 +13,32 @@
         </div>
     </div>
 
-    <p class="text-body-secondary small mb-3" id="latency-source-text">
-        Select multiple regions to visualise pairwise round-trip latency (ms) on a world map.
-        Data source:
-        <a href="https://learn.microsoft.com/en-us/azure/networking/azure-network-latency"
-           target="_blank" rel="noopener">Azure Network Latency</a>.
-        <br>
-        <em>Note: not all regions and pairing combinations have documented latency data available.</em>
-    </p>
+    <div class="text-body-secondary small mb-3" id="latency-source-text">
+        <span class="latency-source-text-variant" data-source-variant="inter-azuredocs">
+            Select multiple regions to visualise pairwise round-trip latency (ms) on a world map.
+            Data source:
+            <a href="https://learn.microsoft.com/en-us/azure/networking/azure-network-latency"
+               target="_blank" rel="noopener">Azure Docs — Network Latency</a>.
+            <br>
+            <em>Note: not all regions and pairing combinations have documented latency data available.</em>
+        </span>
+        <span class="latency-source-text-variant d-none" data-source-variant="inter-cloud63">
+            Select multiple regions to visualise pairwise round-trip latency (ms) on a world map.
+            Data source:
+            <a href="https://latency.azure.cloud63.fr/" target="_blank" rel="noopener">Cloud63 — Azure Latency Test</a>
+            (crowd-sourced measurements).
+            <br>
+            <em>Note: not all regions and pairing combinations have documented latency data available.
+            Cloud63 data may take a moment to load on first use.</em>
+        </span>
+        <span class="latency-source-text-variant d-none" data-source-variant="interzone">
+            Visualise inter-zone latency between Availability Zones for the region selected.
+            Data source:
+            <a href="https://latency.azure.cloud63.fr/" target="_blank" rel="noopener">Cloud63 — Azure Latency Test</a>.
+            <br>
+            <em>When multiple values exist for a zone pair, P50 (median) is used.</em>
+        </span>
+    </div>
 
     <div id="latency-inter-mode">
         <!-- Top bar: region selector + mode toggle -->

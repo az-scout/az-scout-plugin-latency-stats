@@ -91,7 +91,7 @@
         const interzoneTableEl  = document.getElementById("latency-interzone-table-container");
         const interzoneRegionEl = document.getElementById("latency-interzone-region-current");
         const interzoneStatusEl = document.getElementById("latency-interzone-status");
-        const coreRegionSelect = document.getElementById("region-select");
+        let _currentRegion = "";
         const scopeRadios = document.querySelectorAll('input[name="latency-scope"]');
         const selectedRegions = new Set(); // persists across filter rebuilds
 
@@ -109,28 +109,12 @@
         }
 
         function updateSourceText(scope, mode) {
-            if (scope === "interzone") {
-                sourceText.innerHTML =
-                    'Visualise inter-zone latency between Availability Zones for the region selected.' +
-                    'Data source: <a href="https://latency.azure.cloud63.fr/" target="_blank" rel="noopener">Cloud63 — Azure Latency Test</a>. ' +
-                    '<br><em>When multiple values exist for a zone pair, P50 (median) is used.</em>';
-                return;
-            }
-
-            if (mode === "cloud63") {
-                sourceText.innerHTML =
-                    'Select multiple regions to visualise pairwise round-trip latency (ms) on a world map. ' +
-                    'Data source: <a href="https://latency.azure.cloud63.fr/" target="_blank" rel="noopener">Cloud63 — Azure Latency Test</a> ' +
-                    '(crowd-sourced measurements).' +
-                    '<br><em>Note: not all regions and pairing combinations have documented latency data available. ' +
-                    'Cloud63 data may take a moment to load on first use.</em>';
-            } else {
-                sourceText.innerHTML =
-                    'Select multiple regions to visualise pairwise round-trip latency (ms) on a world map. ' +
-                    'Data source: <a href="https://learn.microsoft.com/en-us/azure/networking/azure-network-latency" ' +
-                    'target="_blank" rel="noopener">Azure Docs — Network Latency</a>.' +
-                    '<br><em>Note: not all regions and pairing combinations have documented latency data available.</em>';
-            }
+            const variant = scope === "interzone" ? "interzone"
+                : mode === "cloud63" ? "inter-cloud63"
+                : "inter-azuredocs";
+            sourceText.querySelectorAll(".latency-source-text-variant").forEach(el => {
+                el.classList.toggle("d-none", el.dataset.sourceVariant !== variant);
+            });
         }
 
         modeRadios.forEach(r => r.addEventListener("change", async () => {
@@ -148,8 +132,7 @@
         }));
 
         function getCoreSelectedRegion() {
-            if (!coreRegionSelect) return "";
-            return (coreRegionSelect.value || "").toLowerCase().trim();
+            return _currentRegion;
         }
 
         function switchScope() {
@@ -169,19 +152,10 @@
             fetchAndRender();
         }
 
-        if (coreRegionSelect) {
-            coreRegionSelect.addEventListener("change", () => {
-                if (getScope() === "interzone") fetchAndRenderInterzone();
-            });
-            const regionObserver = new MutationObserver(() => {
-                if (getScope() === "interzone") fetchAndRenderInterzone();
-            });
-            regionObserver.observe(coreRegionSelect, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-            });
-        }
+        document.addEventListener("azscout:context:change", (e) => {
+            _currentRegion = ((e.detail && e.detail.region) || "").toLowerCase().trim();
+            if (getScope() === "interzone") fetchAndRenderInterzone();
+        });
 
         // Start with popover open (no regions selected yet)
         popover.classList.add("open");
@@ -357,13 +331,6 @@
         async function fetchAndRenderInterzone() {
             const region = getCoreSelectedRegion();
             interzoneRegionEl.textContent = region || "—";
-
-            if (!coreRegionSelect) {
-                interzoneStatusEl.textContent = "Main app region selector not found.";
-                interzoneGraphEl.innerHTML = '<p class="text-body-secondary text-center py-3">Region selector unavailable.</p>';
-                interzoneTableEl.innerHTML = "";
-                return;
-            }
 
             if (!region) {
                 interzoneStatusEl.textContent = "Select a region in the main app to view AZ latency.";
