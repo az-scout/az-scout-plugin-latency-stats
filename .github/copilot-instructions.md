@@ -62,7 +62,11 @@ latency_stats = "az_scout_latency_stats:plugin"
 ## Frontend patterns
 
 - The plugin tab container is `#plugin-tab-latency-stats`. Load HTML fragments into it.
-- Watch `#tenant-select` and `#region-select` via `MutationObserver` / change events to react to user context changes.
+- Subscribe to core app context-change events on `document` to react to user context changes:
+  - `azscout:region-changed` — fired when the user changes the selected region; `event.detail.region` holds the new region name.
+  - `azscout:tenant-changed` — fired when the tenant changes; `event.detail.tenantId` holds the new tenant ID.
+  - `azscout:regions-loaded` — fired after region list is populated.
+  - **Do not** watch `#region-select` or `#tenant-select` directly via `change` events or `MutationObserver`; use the `azscout:*` events instead.
 - Plugin static assets are at `/plugins/latency-stats/static/…`.
 
 ## MCP tool patterns

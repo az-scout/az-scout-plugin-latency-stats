@@ -91,9 +91,11 @@
         const interzoneTableEl  = document.getElementById("latency-interzone-table-container");
         const interzoneRegionEl = document.getElementById("latency-interzone-region-current");
         const interzoneStatusEl = document.getElementById("latency-interzone-status");
-        const coreRegionSelect = document.getElementById("region-select");
         const scopeRadios = document.querySelectorAll('input[name="latency-scope"]');
         const selectedRegions = new Set(); // persists across filter rebuilds
+
+        // Track the current region from core app events
+        let _currentRegion = (document.getElementById("region-select")?.value || "").toLowerCase().trim();
 
         // Mode toggle (azuredocs / cloud63)
         const modeRadios = document.querySelectorAll('input[name="latency-mode"]');
@@ -132,8 +134,7 @@
         }));
 
         function getCoreSelectedRegion() {
-            if (!coreRegionSelect) return "";
-            return (coreRegionSelect.value || "").toLowerCase().trim();
+            return _currentRegion;
         }
 
         function switchScope() {
@@ -153,19 +154,11 @@
             fetchAndRender();
         }
 
-        if (coreRegionSelect) {
-            coreRegionSelect.addEventListener("change", () => {
-                if (getScope() === "interzone") fetchAndRenderInterzone();
-            });
-            const regionObserver = new MutationObserver(() => {
-                if (getScope() === "interzone") fetchAndRenderInterzone();
-            });
-            regionObserver.observe(coreRegionSelect, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-            });
-        }
+        // React to region changes dispatched by the core app
+        document.addEventListener("azscout:region-changed", (event) => {
+            _currentRegion = (event?.detail?.region || "").toLowerCase().trim();
+            if (getScope() === "interzone") fetchAndRenderInterzone();
+        });
 
         // Start with popover open (no regions selected yet)
         popover.classList.add("open");
@@ -341,13 +334,6 @@
         async function fetchAndRenderInterzone() {
             const region = getCoreSelectedRegion();
             interzoneRegionEl.textContent = region || "—";
-
-            if (!coreRegionSelect) {
-                interzoneStatusEl.textContent = "Main app region selector not found.";
-                interzoneGraphEl.innerHTML = '<p class="text-body-secondary text-center py-3">Region selector unavailable.</p>';
-                interzoneTableEl.innerHTML = "";
-                return;
-            }
 
             if (!region) {
                 interzoneStatusEl.textContent = "Select a region in the main app to view AZ latency.";
