@@ -21,7 +21,6 @@ from az_scout_latency_stats._log import logger
 from az_scout_latency_stats._zone_parsing import (
     _normalise_region,
     _normalise_zone,
-    _parse_latency_us,  # noqa: F401  # re-exported for test compatibility
     process_zone_records,
 )
 

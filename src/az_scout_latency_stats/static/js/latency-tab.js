@@ -57,6 +57,19 @@
     let _tableEl = null;         // <div> that contains the rendered table
 
     // -----------------------------------------------------------------------
+    // Utility helpers
+    // -----------------------------------------------------------------------
+    async function apiPost(url, body) {
+        const resp = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        return resp.json();
+    }
+
+    // -----------------------------------------------------------------------
     // 1. Load HTML fragment
     // -----------------------------------------------------------------------
     fetch(`/plugins/${PLUGIN_NAME}/static/html/latency-tab.html`)
@@ -94,8 +107,8 @@
         const scopeRadios = document.querySelectorAll('input[name="latency-scope"]');
         const selectedRegions = new Set(); // persists across filter rebuilds
 
-        // Track the current region from core app events
-        let _currentRegion = (document.getElementById("region-select")?.value || "").toLowerCase().trim();
+        // Track the current region from core app events (initialised via azscout:regions-loaded)
+        let _currentRegion = "";
 
         // Mode toggle (azuredocs / cloud63)
         const modeRadios = document.querySelectorAll('input[name="latency-mode"]');
@@ -158,6 +171,14 @@
         document.addEventListener("azscout:region-changed", (event) => {
             _currentRegion = (event?.detail?.region || "").toLowerCase().trim();
             if (getScope() === "interzone") fetchAndRenderInterzone();
+        });
+
+        // Seed initial region value when the core app signals regions are loaded
+        document.addEventListener("azscout:regions-loaded", (event) => {
+            if (!_currentRegion) {
+                _currentRegion = (event?.detail?.region || "").toLowerCase().trim();
+                if (getScope() === "interzone" && _currentRegion) fetchAndRenderInterzone();
+            }
         });
 
         // Start with popover open (no regions selected yet)

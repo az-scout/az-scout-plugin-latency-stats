@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from az_scout_latency_stats._zone_parsing import _parse_latency_us
 from az_scout_latency_stats.inter_zone import (
-    _parse_latency_us,
     _process_inter_zone_records,
     get_inter_zone_latency_us,
     get_inter_zone_matrix,
