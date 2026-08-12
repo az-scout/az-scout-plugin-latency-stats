@@ -42,6 +42,8 @@ az-scout-plugin-latency-stats/
 │       └── publish.yml          # Publish to PyPI on version tags
 ├── pyproject.toml
 ├── README.md
+├── tools/
+│   └── vendor_assets.py         # Stdlib-only sync script for vendored assets
 └── src/
     └── az_scout_latency_stats/
         ├── __init__.py          # Plugin class + module-level `plugin` instance
@@ -58,9 +60,35 @@ az-scout-plugin-latency-stats/
             │   └── region-coordinates.json
             ├── html/
             │   └── latency-tab.html # HTML fragment (fetched by JS at runtime)
-            └── js/
-                ├── latency-tab.js           # Main tab bootstrap + inter-region UI logic
-                └── latency-tab-interzone.js # Inter-zone graph/table rendering + sync
+            ├── js/
+            │   ├── latency-tab.js           # Main tab bootstrap + inter-region UI logic
+            │   └── latency-tab-interzone.js # Inter-zone graph/table rendering + sync
+            └── vendor/                      # Vendored third-party assets (see below)
+                ├── topojson-client/
+                └── world-atlas/
+```
+
+## Vendored assets
+
+Following the az-scout [vendoring recommendation](https://docs.az-scout.com/plugins/#vendoring-third-party-assets-recommended-not-enforced),
+all third-party frontend assets are committed under `static/vendor/` and served same-origin from
+`/plugins/latency-stats/static/vendor/…`. The plugin makes **no runtime requests to a CDN**, so the
+map renders correctly in offline and air-gapped deployments.
+
+D3.js is provided by the core az-scout app and is intentionally **not** re-shipped here.
+
+| Asset | Upstream | Version | License |
+|---|---|---|---|
+| `topojson-client/topojson-client.min.js` | [topojson-client](https://github.com/topojson/topojson-client) | 3.1.0 | ISC |
+| `world-atlas/countries-110m.json` | [world-atlas](https://github.com/topojson/world-atlas) | 2.0.2 | ISC |
+
+The committed files are the source of truth — there is no npm, bundler, or build step. To refresh
+them (or after bumping a pinned version in `tools/vendor_assets.py`):
+
+```bash
+python3 tools/vendor_assets.py                    # download + verify pinned assets
+python3 tools/vendor_assets.py --check            # verify committed files only
+python3 tools/vendor_assets.py --update-checksums # re-pin checksums after a version bump
 ```
 
 ## How it works

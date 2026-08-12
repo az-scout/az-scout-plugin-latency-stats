@@ -32,7 +32,16 @@ src/az_scout_latency_stats/
     └── js/
         ├── latency-tab.js           # Main tab bootstrap + inter-region UI logic
         └── latency-tab-interzone.js # Inter-zone graph/table rendering + sync
+    └── vendor/                      # Vendored third-party assets (no CDN at runtime)
+        ├── topojson-client/         # topojson-client 3.1.0 (ISC)
+        └── world-atlas/             # world-atlas countries-110m 2.0.2 (ISC)
 ```
+
+Third-party frontend assets are **vendored** under `static/vendor/` and referenced same-origin via
+`/plugins/latency-stats/static/vendor/…` — never from a CDN. D3.js comes from the core app and must
+not be re-shipped. Refresh vendored files with the stdlib-only `tools/vendor_assets.py` script
+(pinned versions + SHA-256 checksums); the committed files are the source of truth and there is no
+npm/bundler/build step.
 
 ## Plugin API
 
