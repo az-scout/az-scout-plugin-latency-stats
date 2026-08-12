@@ -7,22 +7,10 @@
     const container = document.getElementById("plugin-tab-" + TAB_ID);
     if (!container) return;
 
-    const WORLD_TOPO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
-    const TOPOJSON_CDN = "https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js";
+    const WORLD_TOPO_URL = `/plugins/${PLUGIN_NAME}/static/vendor/world-atlas/countries-110m.json`;
+    const TOPOJSON_URL = `/plugins/${PLUGIN_NAME}/static/vendor/topojson-client/topojson-client.min.js`;
     const COORDS_URL = `/plugins/${PLUGIN_NAME}/static/data/region-coordinates.json`;
     const INTERZONE_MODULE_URL = `/plugins/${PLUGIN_NAME}/static/js/latency-tab-interzone.js`;
-
-    // Dynamically load topojson-client if not already available
-    function ensureTopojson() {
-        if (typeof topojson !== "undefined") return Promise.resolve();
-        return new Promise((resolve, reject) => {
-            const script = document.createElement("script");
-            script.src = TOPOJSON_CDN;
-            script.onload = resolve;
-            script.onerror = () => reject(new Error("Failed to load topojson-client library"));
-            document.head.appendChild(script);
-        });
-    }
 
     function ensureScript(url, globalSymbol) {
         if (globalSymbol && typeof window[globalSymbol] !== "undefined") return Promise.resolve();
@@ -39,6 +27,11 @@
             script.onerror = () => reject(new Error(`Failed to load ${url}`));
             document.head.appendChild(script);
         });
+    }
+
+    // Load the vendored topojson-client bundle if it is not already available
+    function ensureTopojson() {
+        return ensureScript(TOPOJSON_URL, "topojson");
     }
 
     // Colour palette for region dots
